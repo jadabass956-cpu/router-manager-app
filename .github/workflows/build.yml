@@ -53,21 +53,64 @@ jobs:
       - name: Rename APK
         run: |
           mkdir -p artifacts
-          cp android/app/build/outputs/apk/debug/app-debug.apk artifacts/router-manager-v1.0.0-debug.apk
+          VERSION="v1.0.${{ github.run_number }}"
+          cp android/app/build/outputs/apk/debug/app-debug.apk "artifacts/router-manager-${VERSION}.apk"
+          echo "VERSION=${VERSION}" >> $GITHUB_ENV
+          echo "APK_NAME=router-manager-${VERSION}.apk" >> $GITHUB_ENV
 
-      - name: Upload APK
+      - name: Upload APK to GitHub
         uses: actions/upload-artifact@v4
         with:
           name: router-manager-apk
           path: artifacts/*.apk
           retention-days: 30
 
-      - name: Create Release
+      - name: Upload to 0x0.st (mirror)
+        id: mirror_0x0
+        run: |
+          URL=$(curl -s -F "file=@artifacts/${APK_NAME}" https://0x0.st || echo "FAILED")
+          echo "url_0x0=$URL" >> $GITHUB_OUTPUT
+          echo "0x0 URL: $URL"
+
+      - name: Upload to file.io (mirror)
+        id: mirror_fileio
+        run: |
+          URL=$(curl -s -F "file=@artifacts/${APK_NAME}" https://file.io || echo "FAILED")
+          echo "url_fileio=$URL" >> $GITHUB_OUTPUT
+
+      - name: Upload to transfer.sh (mirror)
+        id: mirror_transfer
+        run: |
+          URL=$(curl -s --upload-file "artifacts/${APK_NAME}" "https://transfer.sh/${APK_NAME}" || echo "FAILED")
+          echo "url_transfer=$URL" >> $GITHUB_OUTPUT
+
+      - name: Summary with direct links
+        run: |
+          {
+            echo "## 📥 روابط تنزيل مباشرة"
+            echo ""
+            echo "**الإصدار:** ${VERSION}"
+            echo ""
+            echo "### 🟢 0x0.st (مفضّل)"
+            echo '${{ steps.mirror_0x0.outputs.url_0x0 }}'
+            echo ""
+            echo "### 🟡 transfer.sh"
+            echo '${{ steps.mirror_transfer.outputs.url_transfer }}'
+            echo ""
+            echo "### 🔵 GitHub Releases"
+            echo "https://github.com/${{ github.repository }}/releases/download/${VERSION}/${APK_NAME}"
+          } >> $GITHUB_STEP_SUMMARY
+
+      - name: Create GitHub Release
         if: github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main'
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v1.0.${{ github.run_number }}
-          name: Build v1.0.${{ github.run_number }}
+          tag_name: ${{ env.VERSION }}
+          name: Build ${{ env.VERSION }}
+          body: |
+            ## تنزيل مباشر (يعمل من سوريا):
+            - **0x0.st:** ${{ steps.mirror_0x0.outputs.url_0x0 }}
+            - **transfer.sh:** ${{ steps.mirror_transfer.outputs.url_transfer }}
           files: artifacts/*.apk
           draft: false
           prerelease: false
