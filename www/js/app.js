@@ -13,6 +13,7 @@ function showOutput(text) {
   const el = document.getElementById('output');
   el.classList.remove('hidden');
   el.textContent = typeof text === 'string' ? text : JSON.stringify(text, null, 2);
+  console.log('[output]', text);
 }
 
 function setStatus(type, text) {

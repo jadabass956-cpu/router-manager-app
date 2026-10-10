@@ -24,14 +24,23 @@
     async login() {
       const u = md5safe(this.username);
       const p = md5safe(this.password);
+      console.log('[login] username:', this.username, '-> md5:', u);
+      console.log('[login] password length:', this.password.length, '-> md5:', p);
       const body = urlenc({
         usernameEncrypt: u,
         passwordEncrypt: p,
         'submit.htm?login.htm': 'Send'
       });
+      console.log('[login] POST', this.base + '/login.cgi');
+      console.log('[login] body:', body);
       const res = await window.http.post(this.base + '/login.cgi', body);
+      console.log('[login] response status:', res.status);
+      console.log('[login] response headers:', JSON.stringify(res.headers));
+      console.log('[login] response body (first 500):', (res.body || '').slice(0, 500));
       if (!res.ok) throw new Error('فشل الاتصال بالراوتر (' + res.status + ')');
       const check = await window.http.get(this.base + '/index.htm');
+      console.log('[login] check status:', check.status);
+      console.log('[login] check body (first 300):', (check.body || '').slice(0, 300));
       if (/login\.htm/i.test(check.body) && check.body.length < 400) {
         throw new Error('بيانات الدخول غير صحيحة');
       }
