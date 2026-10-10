@@ -35,20 +35,37 @@
 
   function createPanel() {
     if (document.getElementById('diag-panel')) return;
+
+    // زر عائم صغير
+    const btn = document.createElement('div');
+    btn.id = 'diag-btn';
+    btn.style.cssText = 'position:fixed;bottom:80px;left:12px;width:44px;height:44px;border-radius:50%;background:#1e293b;border:1px solid #334155;color:#e2e8f0;z-index:99998;display:flex;align-items:center;justify-content:center;font-size:18px;cursor:pointer;box-shadow:0 4px 12px rgba(0,0,0,0.5);';
+    btn.innerHTML = '🔍';
+    btn.onclick = togglePanel;
+    document.body.appendChild(btn);
+
+    // اللوحة (مخفية افتراضيًا)
     const div = document.createElement('div');
     div.id = 'diag-panel';
-    div.style.cssText = 'position:fixed;bottom:0;left:0;right:0;background:#0a0f1c;color:#e2e8f0;font-family:monospace;font-size:10px;border-top:1px solid #334155;z-index:99999;max-height:40vh;overflow:hidden;display:flex;flex-direction:column;';
+    div.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(10,15,28,0.98);color:#e2e8f0;font-family:monospace;font-size:11px;z-index:99999;display:none;flex-direction:column;';
     div.innerHTML = `
-      <div style="padding:6px 10px;background:#1e293b;display:flex;justify-content:space-between;align-items:center;">
-        <span style="font-weight:bold;">🔍 التشخيص</span>
+      <div style="padding:10px 14px;background:#1e293b;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #334155;">
+        <span style="font-weight:bold;font-size:13px;">🔍 التشخيص</span>
         <div>
-          <button onclick="document.getElementById('diag-panel').style.maxHeight = document.getElementById('diag-panel').style.maxHeight === '40vh' ? '60px' : '40vh'" style="background:#334155;color:#e2e8f0;border:none;padding:4px 8px;border-radius:4px;font-size:10px;cursor:pointer;">طي/فتح</button>
-          <button onclick="window.diag.clear()" style="background:#dc2626;color:white;border:none;padding:4px 8px;border-radius:4px;font-size:10px;cursor:pointer;margin-left:4px;">مسح</button>
+          <button onclick="window.diag.clear()" style="background:#dc2626;color:white;border:none;padding:6px 12px;border-radius:6px;font-size:11px;cursor:pointer;margin-left:6px;">مسح</button>
+          <button onclick="window.diag.close()" style="background:#334155;color:#e2e8f0;border:none;padding:6px 12px;border-radius:6px;font-size:11px;cursor:pointer;">إغلاق ✕</button>
         </div>
       </div>
-      <div class="diag-logs" style="padding:6px 10px;overflow-y:auto;flex:1;line-height:1.5;"></div>
+      <div class="diag-logs" style="padding:10px 14px;overflow-y:auto;flex:1;line-height:1.7;font-size:11px;white-space:pre-wrap;word-break:break-all;"></div>
     `;
     document.body.appendChild(div);
+  }
+
+  function togglePanel() {
+    const panel = document.getElementById('diag-panel');
+    if (!panel) return;
+    panel.style.display = panel.style.display === 'none' ? 'flex' : 'none';
+    updatePanel();
   }
 
   function init() {
@@ -85,6 +102,8 @@
     error: (msg) => log('error', msg),
     warn: (msg) => log('warn', msg),
     clear: () => { logs.length = 0; updatePanel(); },
+    close: () => { const p = document.getElementById('diag-panel'); if (p) p.style.display = 'none'; },
+    open: () => togglePanel(),
     logs: () => logs.slice(),
   };
 
