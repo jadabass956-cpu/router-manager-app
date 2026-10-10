@@ -99,6 +99,14 @@
       this.base = 'http://' + this.host;
     }
 
+    _sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+    async _post(path, body) {
+      await this._req(path, { method: 'POST', body });
+      // الراوتر يعيد تشغيل HTTP بعد التعديلات — ننتظر 3 ثواني
+      await this._sleep(3000);
+    }
+
     async _req(path, opts) {
       try {
         const url = this.base + path;
@@ -324,6 +332,7 @@
         [EP.basicFields.submit]: 'Send',
       });
       await this._req(EP.wifi.setupForm, { method: 'POST', body });
+      await this._sleep(3000);
       const after = await this._req(EP.wifi.basicPage);
       if (!after.body.includes(clean)) throw new Error('APPLY_FAILED');
       return { ssid: clean };
@@ -471,6 +480,7 @@
         'submit.htm?wan.htm': 'Send',
       });
       await this._req(EP.wanForms.adslForm, { method: 'POST', body });
+      await this._sleep(5000); // PPPoE يحتاج وقتاً أطول
       return this.getPppoeDetails();
     }
 
@@ -530,6 +540,7 @@
           'submit.htm?time.htm': 'Send',
         }),
       });
+      await this._sleep(3000);
       return this.getTimeSettings();
     }
 
@@ -550,6 +561,7 @@
           'submit.htm?time.htm': 'Send',
         }),
       });
+      await this._sleep(3000);
       return (await this.getTimeSettings()).ntp;
     }
 

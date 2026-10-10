@@ -1,7 +1,7 @@
 // طبقة HTTP — تعمل داخل APK (CapacitorHttp) أو في المتصفح (fetch)
 (function() {
   const IS_NATIVE = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
-  const BASE_TIMEOUT = 15000;
+  const BASE_TIMEOUT = 30000;
 
   // مخزن cookies داخل التطبيق
   const cookieJar = new Map();

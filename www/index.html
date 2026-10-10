@@ -148,7 +148,9 @@ tailwind.config = {
             </div>
             <div class="flex-1 min-w-0">
               <div class="flex items-center gap-2 mb-1 flex-wrap">
+                <span x-show="getVendor(d.mac).icon !== '❓'" x-text="getVendor(d.mac).icon" class="text-base"></span>
                 <span class="font-semibold text-sm truncate" x-text="d.name || d.ip || 'جهاز'"></span>
+                <span x-show="getVendor(d.mac).vendor" class="text-[9px] px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400" x-text="getVendor(d.mac).vendorAr || getVendor(d.mac).vendor"></span>
                 <span x-show="d.name" class="text-[10px] text-gray-400 font-mono" x-text="d.ip || ''"></span>
                 <template x-if="d.blocked && d.unblockAt">
                   <span class="text-[10px] px-2 py-0.5 rounded-full font-medium bg-red-100 dark:bg-red-950/50 text-red-700 dark:text-red-400"
@@ -1785,6 +1787,11 @@ function app() {
       if (this.speed.mode === 'upload') return d.upload?.kbps ?? 0;
       return d.download?.kbps ?? 0;
     },
+    getVendor(mac) {
+      if (!window.vendor) return { icon: '❓', vendor: null, vendorAr: null };
+      try { return window.vendor.identify(mac); }
+      catch (e) { return { icon: '❓', vendor: null, vendorAr: null }; }
+    },
     fmtBytes(n) {
       if (!n && n !== 0) return '—';
       const v = Number(n);
@@ -1806,6 +1813,7 @@ function app() {
 <script src="lib/storage-app.js"></script>
 <script src="lib/router-full.js"></script>
 <script src="lib/speed.js"></script>
+<script src="lib/vendor.js"></script>
 <script src="lib/api.js"></script>
 
 <!-- ═══════════ Credentials Guard + Helpers ═══════════ -->
