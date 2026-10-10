@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>مدير الراوتر</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  body {
+    font-family: -apple-system, system-ui, "Segoe UI", "Tajawal", sans-serif;
+    background: #0f172a;
+    color: #e2e8f0;
+    min-height: 100vh;
+    padding: 20px;
+    padding-top: env(safe-area-inset-top, 20px);
+    padding-bottom: env(safe-area-inset-bottom, 20px);
+  }
+  .container { max-width: 480px; margin: 0 auto; }
+  h1 { font-size: 22px; margin-bottom: 6px; }
+  .subtitle { color: #94a3b8; font-size: 13px; margin-bottom: 24px; }
+  .card {
+    background: #1e293b;
+    border: 1px solid #334155;
+    border-radius: 14px;
+    padding: 18px;
+    margin-bottom: 16px;
+  }
+  .card h2 { font-size: 15px; margin-bottom: 14px; color: #cbd5e1; }
+  label { display: block; font-size: 12px; color: #94a3b8; margin-bottom: 6px; margin-top: 12px; }
+  label:first-of-type { margin-top: 0; }
+  input {
+    width: 100%;
+    padding: 12px 14px;
+    background: #0f172a;
+    border: 1px solid #334155;
+    border-radius: 10px;
+    color: #e2e8f0;
+    font-size: 14px;
+    font-family: inherit;
+    direction: ltr;
+    text-align: left;
+  }
+  input:focus { outline: none; border-color: #2563eb; }
+  button {
+    width: 100%;
+    padding: 14px;
+    background: #2563eb;
+    color: #fff;
+    border: none;
+    border-radius: 10px;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: inherit;
+    margin-top: 14px;
+  }
+  button:active { background: #1d4ed8; }
+  button:disabled { opacity: 0.5; }
+  button.secondary { background: #334155; margin-top: 8px; }
+  button.secondary:active { background: #475569; }
+  button.danger { background: #dc2626; }
+  button.danger:active { background: #b91c1c; }
+  .status {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 14px;
+    border-radius: 10px;
+    font-size: 13px;
+    margin-bottom: 12px;
+  }
+  .status.ok { background: rgba(34, 197, 94, 0.15); color: #4ade80; border: 1px solid rgba(34, 197, 94, 0.3); }
+  .status.err { background: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.3); }
+  .status.info { background: rgba(59, 130, 246, 0.15); color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.3); }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
+  .output {
+    background: #0f172a;
+    border: 1px solid #334155;
+    border-radius: 10px;
+    padding: 12px;
+    font-family: monospace;
+    font-size: 11px;
+    color: #94a3b8;
+    direction: ltr;
+    text-align: left;
+    max-height: 200px;
+    overflow-y: auto;
+    white-space: pre-wrap;
+    margin-top: 12px;
+  }
+  .hidden { display: none !important; }
+  .hint { font-size: 11px; color: #64748b; margin-top: 8px; line-height: 1.5; }
+</style>
+</head>
+<body>
+
+<div class="container">
+  <h1>📡 مدير الراوتر</h1>
+  <p class="subtitle">تطبيق Android — بدون Termux</p>
+
+  <!-- شاشة الإعداد -->
+  <div id="setup-screen">
+    <div class="card">
+      <h2>بيانات الراوتر</h2>
+      <label>عنوان الراوتر</label>
+      <input id="host" type="text" value="192.168.1.1" placeholder="192.168.1.1" />
+
+      <label>اسم المستخدم (الأدمن)</label>
+      <input id="username" type="text" placeholder="admin" />
+
+      <label>كلمة المرور</label>
+      <input id="password" type="password" placeholder="••••••••" />
+
+      <button id="save-btn" onclick="saveAndTest()">حفظ واختبار الاتصال</button>
+      <p class="hint">💡 للحصول على بيانات الراوتر: عادةً admin/admin أو admin/1234 — تُطبع على ملصق أسفل الراوتر.</p>
+    </div>
+  </div>
+
+  <!-- شاشة الاختبار (تعمل بعد الحفظ) -->
+  <div id="main-screen" class="hidden">
+    <div class="card">
+      <h2>حالة الاتصال</h2>
+      <div id="connection-status" class="status info">
+        <span class="dot"></span>
+        <span>لم يُختبر بعد</span>
+      </div>
+      <button onclick="testConnection()">اختبار الاتصال</button>
+      <button onclick="testMacFilter()" class="secondary">قراءة فلترة MAC</button>
+      <button onclick="testMd5()" class="secondary">اختبار MD5</button>
+      <button onclick="testDirectLogin()" class="secondary">اختبار دخول مباشر</button>
+      <button onclick="resetConfig()" class="secondary danger">تغيير بيانات الراوتر</button>
+
+      <div id="output" class="output hidden"></div>
+    </div>
+  </div>
+
+  <!-- سجل -->
+  <div class="card">
+    <h2>السجل</h2>
+    <div id="log" class="output">التطبيق بدأ...
+</div>
+  </div>
+</div>
+
+<script src="lib/md5.js"></script>
+<script src="lib/http.js"></script>
+<script src="lib/router.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
