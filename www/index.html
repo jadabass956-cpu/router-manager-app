@@ -1294,7 +1294,7 @@ function app() {
     online: false, lastUpdate: null, showPass: false,
     devices: [],
     deviceTab: 'active',
-    security: { scanning: false, scanned: false, results: [], summary: null, score: null, fixingAll: false },
+    security: { scanning: false, scanned: false, results: [], summary: null, score: null, fixingAll: false, fixedAt: null, pendingVerify: false },
     confirmModal: { open: false, title: '', message: '', detail: '', confirmText: 'تأكيد', danger: false, loading: false, onConfirm: null },
     traffic: { totalRx: 0, totalTx: 0, updatedAt: 0 },
     renameModal: { open: false, mac: '', name: '' },
@@ -2003,6 +2003,57 @@ function app() {
       if (this.speed.mode === 'upload') return d.upload?.kbps ?? 0;
       return d.download?.kbps ?? 0;
     },
+    async verifySecurityPersisted() {
+      if (!this.security.pendingVerify) return;
+      try {
+        // فحص هادئ — بدون تغيير UI أثناء الفحص
+        const r = await this.api('/api/security/scan');
+        const newResults = r.results || [];
+        const newSummary = r.summary;
+
+        // قارن: أي عنصر كان 🟢 الآن → 🟡 أو أعلى؟
+        const before = this.security.results || [];
+        const regressed = [];
+        for (const nb of newResults) {
+          if (nb.severity === 'ok') continue;
+          const ob = before.find(b => b.id === nb.id);
+          if (ob && ob.severity === 'ok') {
+            regressed.push({ title: nb.title, severity: nb.severity });
+          }
+        }
+
+        if (regressed.length > 0) {
+          // 🚨 تراجع مكتشف!
+          this.security.results = newResults;
+          this.security.summary = newSummary;
+          this.security.score = newSummary.score;
+          this.toast('🚨 تنبيه: الإصلاحات عادت للظهور!', 'error');
+          this.log('🚨 تراجع أمني: ' + regressed.length + ' مشكلة عادت', 'error');
+          // modal تنبيه
+          this.openConfirm({
+            title: '🚨 تنبيه أمني',
+            message: 'الراوتر أعاد التحذيرات الأمنية بعد الإصلاح',
+            detail: 'السبب الأرجح: TR-069 (المزود يعيد الإعدادات).\n\nعدد التحذيرات العائدة: ' + regressed.length + '\n\n' + regressed.map(x => '• ' + x.title).join('\n'),
+            confirmText: 'إعادة الإصلاح',
+            danger: true,
+            onConfirm: async () => {
+              this.confirmModal.loading = true;
+              this.confirmModal.open = false;
+              setTimeout(() => this.fixAllIssues(), 500);
+            },
+          });
+        } else {
+          // لا تراجع — تحديث النقاط فقط
+          this.security.summary = newSummary;
+          this.security.score = newSummary.score;
+          this.security.results = newResults;
+          this.log('✅ الإصلاحات محفوظة', 'ok');
+        }
+        this.security.pendingVerify = false;
+      } catch (e) {
+        console.warn('[verify] failed:', e.message);
+      }
+    },
     async loadSecurity() {
       try {
         const r = await this.api('/api/security/last-scan');
@@ -2074,7 +2125,10 @@ function app() {
             this.security.score = this.security.summary.score;
             this.confirmModal.loading = false;
             this.closeConfirm(true);
-            setTimeout(() => this.runSecurityScan(), 15000);
+            this.security.fixedAt = Date.now();
+            this.security.pendingVerify = true;
+            this.toast('✅ تم الإصلاح — جاري المراقبة', 'success');
+            setTimeout(() => this.verifySecurityPersisted(), 5 * 60 * 1000);
           } catch (e) {
             this.toast('فشل الإصلاح: ' + e.message, 'error');
             this.confirmModal.loading = false;
@@ -2150,8 +2204,12 @@ function app() {
             this.security.score = this.security.summary.score;
             this.confirmModal.loading = false;
             this.closeConfirm(true);
-            this.toast('🔄 إعادة الفحص بعد 20 ثانية…', 'info');
-            setTimeout(() => this.runSecurityScan(), 20000);
+            // نحتفظ بالحالة الجديدة لمدة 5 دقائق
+            this.security.fixedAt = Date.now();
+            this.security.pendingVerify = true;
+            this.toast('✅ تم الإصلاح — جاري المراقبة', 'success');
+            // جدولة التحقق بعد 5 دقائق
+            setTimeout(() => this.verifySecurityPersisted(), 5 * 60 * 1000);
           } catch (e) {
             this.toast('فشل الإصلاح: ' + e.message, 'error');
             this.confirmModal.loading = false;
