@@ -1,6 +1,6 @@
 {
   "appId": "com.jadabass.routermanager",
-  "appName": "مدير الراوتر",
+  "appName": "Router Manager",
   "webDir": "www",
   "bundledWebRuntime": false,
   "android": {
