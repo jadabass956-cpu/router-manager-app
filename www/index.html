@@ -2054,7 +2054,35 @@ function app() {
         console.warn('[verify] failed:', e.message);
       }
     },
+    saveSecurityState() {
+      try {
+        window.appStore.set('security-state', {
+          results: this.security.results,
+          summary: this.security.summary,
+          score: this.security.score,
+          at: Date.now(),
+        });
+      } catch (e) {}
+    },
+    restoreSecurityState() {
+      try {
+        const saved = window.appStore.get('security-state', null);
+        if (!saved || !saved.results) return false;
+        this.security.results = saved.results;
+        this.security.summary = saved.summary;
+        this.security.score = saved.score;
+        this.security.scanned = true;
+        return true;
+      } catch (e) { return false; }
+    },
     async loadSecurity() {
+      // لا نعيد الفحص تلقائياً — نعرض آخر حالة محفوظة
+      const restored = this.restoreSecurityState();
+      if (restored) {
+        console.log('[security] restored last scan from localStorage');
+        return;
+      }
+      // أول مرة فقط — فحص
       try {
         const r = await this.api('/api/security/last-scan');
         if (r && r.summary) {
