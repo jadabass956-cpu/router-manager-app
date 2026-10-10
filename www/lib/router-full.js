@@ -213,14 +213,38 @@
     async setMacFilterMode(mode) {
       const idx = ['disabled', 'allow', 'deny'].indexOf(mode);
       if (idx < 0) throw new Error('INVALID_MODE');
-      const backend = (window.appStore.getCredentials() || {}).backendMac;
-      const backendHex = (backend || '').replace(/[^0-9a-fA-F]/g, '').toLowerCase();
-      const backendFmt = backendHex.length === 12 ? fmt(backendHex) : null;
+
       const current = await this.getMacFilter();
-      if (backendFmt) {
-        if (mode === 'deny' && current.macs.includes(backendFmt)) throw new Error('WOULD_LOCK_OUT');
-        if (mode === 'allow' && !current.macs.includes(backendFmt)) throw new Error('WOULD_LOCK_OUT');
+
+      // حماية 1: لا يمكن تفعيل allow/deny بدون MAC في القائمة
+      if ((mode === 'allow' || mode === 'deny') && current.macs.length === 0) {
+        throw new Error('MAC_LIST_EMPTY');
       }
+
+      // حماية 2: التحقق من MAC جهازنا
+      const creds = window.appStore.getCredentials() || {};
+      const backendHex = (creds.backendMac || '').replace(/[^0-9a-fA-F]/g, '').toLowerCase();
+      const backendFmt = backendHex.length === 12 ? fmt(backendHex) : null;
+
+      if (!backendFmt && (mode === 'allow' || mode === 'deny')) {
+        throw new Error('BACKEND_MAC_UNKNOWN');
+      }
+
+      if (backendFmt) {
+        if (mode === 'deny' && current.macs.includes(backendFmt)) {
+          // احذف جهازنا من القائمة قبل deny
+          console.log('[safety] removing backend MAC before deny');
+          await this.removeMac(backendFmt);
+        } else if (mode === 'allow' && !current.macs.includes(backendFmt)) {
+          // أضف جهازنا للقائمة قبل allow
+          console.log('[safety] adding backend MAC before allow');
+          await this.addMac(backendFmt);
+        }
+      }
+
+      // حفظ الوضع الحالي كـ snapshot
+      window.appStore.set('snapshot-macmode-before', { at: Date.now(), mode: current.mode, macs: current.macs });
+
       await this._req(EP.macFilter.form, {
         method: 'POST',
         body: form({

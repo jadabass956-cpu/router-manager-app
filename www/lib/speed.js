@@ -36,11 +36,41 @@
     });
   }
 
+  // ═══════════ Upload ═══════════
+  function upload(url, totalBytes, timeout = BASE_TIMEOUT) {
+    return new Promise((resolve, reject) => {
+      const started = performance.now();
+      let finished = false;
+      const finish = (err) => {
+        if (finished) return;
+        finished = true;
+        if (err) return reject(err);
+        resolve({ bytes: totalBytes, ms: performance.now() - started });
+      };
+
+      // نبني بلوك 64KB ونكرره
+      const chunk = new Uint8Array(64 * 1024);
+      const blob = new Blob([chunk], { type: 'application/octet-stream' });
+
+      fetch(url, {
+        method: 'POST',
+        body: blob,
+        headers: { 'Content-Type': 'application/octet-stream' },
+      })
+        .then(() => finish())
+        .catch(finish);
+    });
+  }
+
   // ═══════════ Measure ═══════════
   async function measure({ sizeMb = 2, samples = 1 } = {}) {
     const downBytes = sizeMb * 1024 * 1024;
-    const downResults = [];
+    const upBytes = Math.max(1, Math.floor(sizeMb / 4)) * 1024 * 1024;
 
+    const downResults = [];
+    const upResults = [];
+
+    // تحميل
     for (let i = 0; i < samples; i++) {
       try {
         const { bytes, ms } = await download(
@@ -49,18 +79,31 @@
         if (bytes > 0 && ms > 0) {
           downResults.push({ mbps: (bytes * 8) / (ms / 1000) / 1e6, seconds: ms / 1000, bytes });
         }
-      } catch (e) {}
+      } catch (e) { console.warn('[speed] download failed:', e.message); }
     }
 
-    if (!downResults.length) return { ok: false, error: 'فشل قياس السرعة' };
-    const avg = downResults.reduce((s, r) => s + r.mbps, 0) / downResults.length;
-    const avgKbps = Math.round(avg * 125);
+    // رفع
+    for (let i = 0; i < samples; i++) {
+      try {
+        const { bytes, ms } = await upload('https://speed.cloudflare.com/__up', upBytes);
+        if (bytes > 0 && ms > 0) {
+          upResults.push({ mbps: (bytes * 8) / (ms / 1000) / 1e6, seconds: ms / 1000, bytes });
+        }
+      } catch (e) { console.warn('[speed] upload failed:', e.message); }
+    }
+
+    if (!downResults.length && !upResults.length) {
+      return { ok: false, error: 'فشل قياس السرعة' };
+    }
+
+    const dlAvg = downResults.length ? downResults.reduce((s, r) => s + r.mbps, 0) / downResults.length : 0;
+    const ulAvg = upResults.length ? upResults.reduce((s, r) => s + r.mbps, 0) / upResults.length : 0;
 
     return {
       ok: true,
-      download: { mbps: Number(avg.toFixed(2)), kbps: avgKbps, samples: downResults },
-      upload: { mbps: 0, kbps: 0, samples: [] },
-      mbps: Number(avg.toFixed(2)),
+      download: { mbps: Number(dlAvg.toFixed(2)), kbps: Math.round(dlAvg * 125), samples: downResults },
+      upload: { mbps: Number(ulAvg.toFixed(2)), kbps: Math.round(ulAvg * 125), samples: upResults },
+      mbps: Number(dlAvg.toFixed(2)),
       samples: downResults,
       testedAt: new Date().toISOString(),
     };

@@ -236,7 +236,19 @@
       try {
         const r = await withRouter((d) => d.setMacFilterMode(body.mode));
         return jsonResponse(r);
-      } catch (e) { return errorResponse('APPLY_FAILED', e.message); }
+      } catch (e) {
+        const msg = e.message || '';
+        if (msg === 'MAC_LIST_EMPTY') {
+          return errorResponse('MAC_LIST_EMPTY', 'لا يمكن تفعيل السماح/الحظر بدون إضافة MAC للقائمة أولاً. أضف MAC جهازك ثم أعد المحاولة.', 400);
+        }
+        if (msg === 'BACKEND_MAC_UNKNOWN') {
+          return errorResponse('BACKEND_MAC_UNKNOWN', 'لم يُحدّد MAC جهازك. اذهب للإعدادات → MAC جهازي، وأدخله لتفعيل الحماية.', 400);
+        }
+        if (msg === 'WOULD_LOCK_OUT') {
+          return errorResponse('WOULD_LOCK_OUT', 'هذه العملية ستحظر جهازك من الاتصال!', 409);
+        }
+        return errorResponse('APPLY_FAILED', msg);
+      }
     },
     'POST /api/mac-filter/emergency-reset': async () => {
       try {
