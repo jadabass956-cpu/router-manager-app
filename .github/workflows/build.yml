@@ -67,30 +67,47 @@ jobs:
           path: artifacts/*.apk
           retention-days: 30
 
-      - name: Upload to catbox.moe (direct mirror)
+      - name: Upload to temp.sh
         continue-on-error: true
         run: |
           set +e
-          URL=$(curl -s --max-time 60 -F "reqtype=fileupload" -F "fileToUpload=@artifacts/${APK_NAME}" https://catbox.moe/user/api.php 2>&1 | tr -d '\n' | head -c 300)
-          if [[ "$URL" =~ ^https:// ]]; then
-            echo "CATBOX_URL=$URL" >> $GITHUB_ENV
-            echo "catbox: $URL"
+          OUT=$(curl -s --max-time 120 --upload-file "artifacts/${APK_NAME}" "https://temp.sh/upload" 2>&1)
+          URL=$(echo "$OUT" | grep -oE "https://[^ ]+" | head -1)
+          if [ -n "$URL" ]; then
+            echo "TEMPSH_URL=$URL" >> $GITHUB_ENV
+            echo "temp.sh: $URL"
           else
-            echo "catbox failed: $URL"
-            echo "CATBOX_URL=(failed)" >> $GITHUB_ENV
+            echo "temp.sh failed: $OUT"
+            echo "TEMPSH_URL=(failed)" >> $GITHUB_ENV
           fi
 
-      - name: Upload to 0x0.st (direct mirror)
+      - name: Upload to tmpfiles.org
         continue-on-error: true
         run: |
           set +e
-          URL=$(curl -s --max-time 60 -F "file=@artifacts/${APK_NAME}" https://0x0.st 2>&1 | tr -d '\n' | head -c 300)
-          if [[ "$URL" =~ ^https:// ]]; then
-            echo "ZEROX_URL=$URL" >> $GITHUB_ENV
-            echo "0x0.st: $URL"
+          RESP=$(curl -s --max-time 120 -F "file=@artifacts/${APK_NAME}" https://tmpfiles.org/api/v1/upload 2>&1)
+          URL=$(echo "$RESP" | grep -oE '"url":"[^"]+"' | head -1 | sed 's/"url":"//;s/"//')
+          if [ -n "$URL" ]; then
+            DIRECT=$(echo "$URL" | sed 's|tmpfiles.org/|tmpfiles.org/dl/|')
+            echo "TMPFILES_URL=$DIRECT" >> $GITHUB_ENV
+            echo "tmpfiles: $DIRECT"
           else
-            echo "0x0.st failed: $URL"
-            echo "ZEROX_URL=(failed)" >> $GITHUB_ENV
+            echo "tmpfiles failed: $RESP"
+            echo "TMPFILES_URL=(failed)" >> $GITHUB_ENV
+          fi
+
+      - name: Upload to bashupload.com
+        continue-on-error: true
+        run: |
+          set +e
+          OUT=$(curl -s --max-time 120 --upload-file "artifacts/${APK_NAME}" "https://bashupload.com/${APK_NAME}" 2>&1)
+          URL=$(echo "$OUT" | grep -oE "https://[^ ]+download[^ ]*" | head -1)
+          if [ -n "$URL" ]; then
+            echo "BASH_URL=$URL" >> $GITHUB_ENV
+            echo "bashupload: $URL"
+          else
+            echo "bashupload failed: $OUT"
+            echo "BASH_URL=(failed)" >> $GITHUB_ENV
           fi
 
       - name: Build summary
@@ -98,14 +115,14 @@ jobs:
           {
             echo "## 📥 Router Manager ${VERSION}"
             echo ""
-            echo "### 🟢 catbox.moe (مفضّل — مباشر)"
-            echo "\`${CATBOX_URL}\`"
+            echo "### 🟢 temp.sh (مفضّل)"
+            echo "\`${TEMPSH_URL}\`"
             echo ""
-            echo "### 🟡 0x0.st (بديل)"
-            echo "\`${ZEROX_URL}\`"
+            echo "### 🟡 tmpfiles.org"
+            echo "\`${TMPFILES_URL}\`"
             echo ""
-            echo "### 🔵 GitHub Releases"
-            echo "https://github.com/${{ github.repository }}/releases/download/${VERSION}/${APK_NAME}"
+            echo "### 🔵 bashupload.com"
+            echo "\`${BASH_URL}\`"
           } >> $GITHUB_STEP_SUMMARY
 
       - name: Create GitHub Release
@@ -115,15 +132,18 @@ jobs:
           tag_name: ${{ env.VERSION }}
           name: Build ${{ env.VERSION }}
           body: |
-            ## 📥 تنزيل مباشر (يعمل من سوريا):
+            ## 📥 روابط مباشرة (تعمل من سوريا):
 
-            **🟢 catbox.moe:**
-            ${{ env.CATBOX_URL }}
+            **🟢 temp.sh:**
+            ${{ env.TEMPSH_URL }}
 
-            **🟡 0x0.st:**
-            ${{ env.ZEROX_URL }}
+            **🟡 tmpfiles.org:**
+            ${{ env.TMPFILES_URL }}
 
-            **🔵 GitHub (قد يحتاج VPN):**
+            **🔵 bashupload.com:**
+            ${{ env.BASH_URL }}
+
+            **GitHub (قد يحتاج VPN):**
             https://github.com/${{ github.repository }}/releases/download/${{ env.VERSION }}/${{ env.APK_NAME }}
           files: artifacts/*.apk
           draft: false
