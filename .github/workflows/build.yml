@@ -54,9 +54,11 @@ jobs:
         run: |
           mkdir -p artifacts
           VERSION="v1.0.${{ github.run_number }}"
-          cp android/app/build/outputs/apk/debug/app-debug.apk "artifacts/router-manager-${VERSION}.apk"
+          APK_NAME="router-manager-${VERSION}.apk"
+          cp android/app/build/outputs/apk/debug/app-debug.apk "artifacts/${APK_NAME}"
           echo "VERSION=${VERSION}" >> $GITHUB_ENV
-          echo "APK_NAME=router-manager-${VERSION}.apk" >> $GITHUB_ENV
+          echo "APK_NAME=${APK_NAME}" >> $GITHUB_ENV
+          ls -lh artifacts/
 
       - name: Upload APK to GitHub
         uses: actions/upload-artifact@v4
@@ -65,37 +67,42 @@ jobs:
           path: artifacts/*.apk
           retention-days: 30
 
-      - name: Upload to 0x0.st (mirror)
-        id: mirror_0x0
+      - name: Upload to catbox.moe (direct mirror)
+        continue-on-error: true
         run: |
-          URL=$(curl -s -F "file=@artifacts/${APK_NAME}" https://0x0.st || echo "FAILED")
-          echo "url_0x0=$URL" >> $GITHUB_OUTPUT
-          echo "0x0 URL: $URL"
+          set +e
+          URL=$(curl -s --max-time 60 -F "reqtype=fileupload" -F "fileToUpload=@artifacts/${APK_NAME}" https://catbox.moe/user/api.php 2>&1 | tr -d '\n' | head -c 300)
+          if [[ "$URL" =~ ^https:// ]]; then
+            echo "CATBOX_URL=$URL" >> $GITHUB_ENV
+            echo "catbox: $URL"
+          else
+            echo "catbox failed: $URL"
+            echo "CATBOX_URL=(failed)" >> $GITHUB_ENV
+          fi
 
-      - name: Upload to file.io (mirror)
-        id: mirror_fileio
+      - name: Upload to 0x0.st (direct mirror)
+        continue-on-error: true
         run: |
-          URL=$(curl -s -F "file=@artifacts/${APK_NAME}" https://file.io || echo "FAILED")
-          echo "url_fileio=$URL" >> $GITHUB_OUTPUT
+          set +e
+          URL=$(curl -s --max-time 60 -F "file=@artifacts/${APK_NAME}" https://0x0.st 2>&1 | tr -d '\n' | head -c 300)
+          if [[ "$URL" =~ ^https:// ]]; then
+            echo "ZEROX_URL=$URL" >> $GITHUB_ENV
+            echo "0x0.st: $URL"
+          else
+            echo "0x0.st failed: $URL"
+            echo "ZEROX_URL=(failed)" >> $GITHUB_ENV
+          fi
 
-      - name: Upload to transfer.sh (mirror)
-        id: mirror_transfer
-        run: |
-          URL=$(curl -s --upload-file "artifacts/${APK_NAME}" "https://transfer.sh/${APK_NAME}" || echo "FAILED")
-          echo "url_transfer=$URL" >> $GITHUB_OUTPUT
-
-      - name: Summary with direct links
+      - name: Build summary
         run: |
           {
-            echo "## 📥 روابط تنزيل مباشرة"
+            echo "## 📥 Router Manager ${VERSION}"
             echo ""
-            echo "**الإصدار:** ${VERSION}"
+            echo "### 🟢 catbox.moe (مفضّل — مباشر)"
+            echo "\`${CATBOX_URL}\`"
             echo ""
-            echo "### 🟢 0x0.st (مفضّل)"
-            echo '${{ steps.mirror_0x0.outputs.url_0x0 }}'
-            echo ""
-            echo "### 🟡 transfer.sh"
-            echo '${{ steps.mirror_transfer.outputs.url_transfer }}'
+            echo "### 🟡 0x0.st (بديل)"
+            echo "\`${ZEROX_URL}\`"
             echo ""
             echo "### 🔵 GitHub Releases"
             echo "https://github.com/${{ github.repository }}/releases/download/${VERSION}/${APK_NAME}"
@@ -108,9 +115,16 @@ jobs:
           tag_name: ${{ env.VERSION }}
           name: Build ${{ env.VERSION }}
           body: |
-            ## تنزيل مباشر (يعمل من سوريا):
-            - **0x0.st:** ${{ steps.mirror_0x0.outputs.url_0x0 }}
-            - **transfer.sh:** ${{ steps.mirror_transfer.outputs.url_transfer }}
+            ## 📥 تنزيل مباشر (يعمل من سوريا):
+
+            **🟢 catbox.moe:**
+            ${{ env.CATBOX_URL }}
+
+            **🟡 0x0.st:**
+            ${{ env.ZEROX_URL }}
+
+            **🔵 GitHub (قد يحتاج VPN):**
+            https://github.com/${{ github.repository }}/releases/download/${{ env.VERSION }}/${{ env.APK_NAME }}
           files: artifacts/*.apk
           draft: false
           prerelease: false
