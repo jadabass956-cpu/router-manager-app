@@ -413,7 +413,9 @@
       try {
         const names = Array.isArray(body.names) ? body.names : [];
         if (!names.length) return errorResponse('BAD_REQUEST', 'قائمة الإصلاحات فارغة');
-        const r = await window.security.applyAllFixes(names);
+        const mod = window.securityFixes || window.security;
+        if (!mod || !mod.applyAllFixes) return errorResponse('NOT_READY', 'وحدة الإصلاح غير محملة', 500);
+        const r = await mod.applyAllFixes(names);
         return jsonResponse({ ok: r.succeeded.length > 0, ...r });
       } catch (e) {
         return errorResponse('FIX_ALL_FAILED', e.message, 500);

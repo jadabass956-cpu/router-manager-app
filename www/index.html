@@ -2083,25 +2083,45 @@ function app() {
     },
     async fixAllIssues() {
       const issues = this.getFixableIssues();
-      if (!issues.length) { this.toast('لا توجد مشاكل قابلة للإصلاح', 'warn'); return; }
-      const names = issues.map(i => String(i.fixAction.url).split('/').pop()).filter(n => n !== 'wifi-enc');
-      if (!names.length) { this.toast('لا توجد إصلاحات تلقائية', 'warn'); return; }
-      const list = issues.filter(i => String(i.fixAction.url).split('/').pop() !== 'wifi-enc').map(i => '• ' + i.title).join('\n');
+      if (!issues.length) {
+        this.toast('لا توجد مشاكل قابلة للإصلاح', 'warn');
+        return;
+      }
+      const names = issues
+        .map(i => String(i.fixAction.url).split('/').pop())
+        .filter(n => n !== 'wifi-enc');
+      if (!names.length) {
+        this.toast('لا توجد إصلاحات تلقائية', 'warn');
+        return;
+      }
+      const list = issues
+        .filter(i => String(i.fixAction.url).split('/').pop() !== 'wifi-enc')
+        .map(i => '• ' + i.title)
+        .join('\n');
+
       this.openConfirm({
         title: 'إصلاح كل المشاكل؟',
         message: 'سيتم إصلاح ' + names.length + ' مشكلة:',
-        detail: list + '\n\nملاحظة: تغيير التشفير مستثنى.',
-        confirmText: 'إصلاح الكل',
+        detail: list + '\n\n⏱️ قد يستغرق دقيقة. لا تغلق التطبيق.',
+        confirmText: 'بدء الإصلاح',
         danger: true,
         onConfirm: async () => {
           this.confirmModal.loading = true;
           this.security.fixingAll = true;
+          this.toast('⏳ جاري الإصلاح… لا تغلق التطبيق', 'info');
           try {
-            const r = await this.api('/api/security/fix-all', { method: 'POST', body: JSON.stringify({ names: names }) });
+            const r = await this.api('/api/security/fix-all', {
+              method: 'POST',
+              body: JSON.stringify({ names: names }),
+            });
             const okCount = (r.succeeded || []).length;
             const failCount = (r.failed || []).length;
-            if (okCount > 0) this.toast('✅ تم إصلاح ' + okCount + (failCount ? ' — فشل ' + failCount : ''), failCount ? 'warn' : 'success');
-            else this.toast('⚠️ لم ينجح أي إصلاح', 'warn');
+            if (okCount > 0) {
+              this.toast('✅ تم إصلاح ' + okCount + ' مشكلة' + (failCount ? ' — فشل ' + failCount : ''), failCount ? 'warn' : 'success');
+              this.log('إصلاح جماعي: نجح ' + okCount + '، فشل ' + failCount, 'warn');
+            } else {
+              this.toast('⚠️ لم ينجح أي إصلاح — تحقق من السجل', 'warn');
+            }
             const succeeded = r.succeeded || [];
             this.security.results = this.security.results.map(item => {
               const key = item.fixAction && item.fixAction.url ? String(item.fixAction.url).split('/').pop() : null;
@@ -2118,9 +2138,10 @@ function app() {
             this.security.summary = { critical: crit, high, medium: med, low, ok, score: Math.max(0, 100 - crit*30 - high*20 - med*10 - low*2), at: Date.now() };
             this.security.score = this.security.summary.score;
             this.closeConfirm();
-            setTimeout(() => this.runSecurityScan(), 15000);
+            this.toast('🔄 إعادة الفحص بعد 20 ثانية…', 'info');
+            setTimeout(() => this.runSecurityScan(), 20000);
           } catch (e) {
-            this.toast('فشل الإصلاح الجماعي: ' + e.message, 'error');
+            this.toast('فشل الإصلاح: ' + e.message, 'error');
             this.confirmModal.loading = false;
           } finally {
             this.security.fixingAll = false;
@@ -2208,6 +2229,7 @@ function app() {
 <script src="lib/vendor.js"></script>
 <script src="lib/api.js"></script>
 <script src="lib/security.js"></script>
+<script src="lib/security-fixes.js"></script>
 
 <!-- ═══════════ Credentials Guard + Helpers ═══════════ -->
 <script>
