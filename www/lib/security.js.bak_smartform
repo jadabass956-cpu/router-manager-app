@@ -1,0 +1,476 @@
+// ═══════════════════════════════════════════════════════════
+// Security Service — فحص ثغرات وأمان راوتر TP-Link
+// ═══════════════════════════════════════════════════════════
+(function() {
+  'use strict';
+
+  const SEV = {
+    CRITICAL: 'critical',  // خطر فوري — أحمر
+    HIGH: 'high',          // مهم — برتقالي
+    MEDIUM: 'medium',      // تحذير — أصفر
+    LOW: 'low',            // معلومة — رمادي
+    OK: 'ok',              // آمن — أخضر
+  };
+
+  const SEV_LABEL = {
+    critical: '🔴 خطر حرج',
+    high: '🟠 خطر',
+    medium: '🟡 تحذير',
+    low: '⚪ معلومة',
+    ok: '🟢 آمن',
+  };
+
+  const SEV_COLOR = {
+    critical: '#dc2626',
+    high: '#ea580c',
+    medium: '#ca8a04',
+    low: '#64748b',
+    ok: '#16a34a',
+  };
+
+  // ═══════════════════════════════════════════
+  // Helpers
+  // ═══════════════════════════════════════════
+  function findInput(html, name) {
+    const re = new RegExp('<input[^>]*name\\s*=\\s*["\']?' + name + '["\']?[^>]*>', 'i');
+    const m = html.match(re);
+    return m ? m[0] : null;
+  }
+
+  function isChecked(inputHtml) {
+    return inputHtml && /\schecked/i.test(inputHtml);
+  }
+
+  function isSelectEnabled(html, name) {
+    // يبحث عن radio/checkbox مفحوص
+    const re = new RegExp('<input[^>]*type\\s*=\\s*["\']?(radio|checkbox)["\']?[^>]*name\\s*=\\s*["\']?' + name + '["\']?[^>]*>', 'gi');
+    let m;
+    while ((m = re.exec(html)) !== null) {
+      if (/\schecked/i.test(m[0])) return true;
+    }
+    return false;
+  }
+
+  function getInputValue(html, name) {
+    const re = new RegExp('<input[^>]*name\\s*=\\s*["\']?' + name + '["\']?[^>]*value\\s*=\\s*["\']?([^"\'>]*)', 'i');
+    const m = html.match(re);
+    return m ? m[1].trim() : '';
+  }
+
+  function getSelectedRadio(html, name) {
+    const re = new RegExp('<input[^>]*type\\s*=\\s*["\']?radio["\']?[^>]*name\\s*=\\s*["\']?' + name + '["\']?[^>]*value\\s*=\\s*["\']?([^"\'\s>]+)["\']?[^>]*>', 'gi');
+    let m;
+    while ((m = re.exec(html)) !== null) {
+      if (/\schecked/i.test(m[0])) return m[1];
+    }
+    return null;
+  }
+
+  // ═══════════════════════════════════════════
+  // Individual Checks
+  // ═══════════════════════════════════════════
+  async function checkWPS(router) {
+    try {
+      const r = await _reqWithRetry(router, '/wlwps.htm');
+      const html = r.body;
+
+      // disableWPS checkbox: ON = WPS معطّل
+      const disableInput = findInput(html, 'disableWPS');
+      const disabled = isChecked(disableInput);
+
+      if (disabled) {
+        return {
+          id: 'wps',
+          severity: SEV.OK,
+          title: 'WPS معطّل',
+          description: 'خاصية WPS مغلقة — لن يتمكن أحد من استخدام ثغراتها المعروفة.',
+          fixable: false,
+        };
+      }
+
+      return {
+        id: 'wps',
+        severity: SEV.CRITICAL,
+        title: '⚠️ WPS مفعّل — خطر اختراق',
+        description: 'WPS يحتوي على ثغرات معروفة (PixieDust, PIN Brute Force) تسمح باختراق الشبكة في دقائق. يجب إغلاقه فوراً.',
+        fixable: true,
+        fixLabel: 'إغلاق WPS الآن',
+        fixAction: { url: '/api/security/fix/wps' },
+      };
+    } catch (e) {
+      return { id: 'wps', severity: SEV.LOW, title: 'تعذر فحص WPS', description: e.message };
+    }
+  }
+
+  async function checkUPnP(router) {
+    try {
+      const r = await _reqWithRetry(router, '/upnp.htm');
+      const html = r.body;
+      const enabled = isSelectEnabled(html, 'daemon');
+
+      if (!enabled) {
+        return {
+          id: 'upnp',
+          severity: SEV.OK,
+          title: 'UPnP معطّل',
+          description: 'الراوتر لا يفتح منافذ تلقائياً.',
+        };
+      }
+
+      return {
+        id: 'upnp',
+        severity: SEV.HIGH,
+        title: 'UPnP مفعّل — خطر',
+        description: 'UPnP يسمح لأي تطبيق على الشبكة (بما فيها برامج خبيثة) بفتح منافذ في الراوتر تلقائياً بدون علمك.',
+        fixable: true,
+        fixLabel: 'إغلاق UPnP',
+        fixAction: { url: '/api/security/fix/upnp' },
+      };
+    } catch (e) {
+      return { id: 'upnp', severity: SEV.LOW, title: 'تعذر فحص UPnP', description: e.message };
+    }
+  }
+
+  async function checkTR069(router) {
+    try {
+      const r = await _reqWithRetry(router, '/tr069.htm');
+      const html = r.body;
+
+      const enabled = isSelectEnabled(html, 'cwmpserverenable');
+      const url = getInputValue(html, 'cwmpserverurl');
+      const user = getInputValue(html, 'cwmpserveruser');
+      const port = getInputValue(html, 'cwmpconreqport');
+
+      if (!enabled) {
+        return {
+          id: 'tr069',
+          severity: SEV.OK,
+          title: 'TR-069 معطّل',
+          description: 'بروتوكول التحكم عن بعد مغلق — الراوتر غير معرض للتحكم الخارجي.',
+        };
+      }
+
+      // مفعّل + URL موجود = خطر
+      if (url && url.length > 5) {
+        return {
+          id: 'tr069',
+          severity: SEV.CRITICAL,
+          title: '🚨 TR-069 مفعّل بعنوان خارجي!',
+          description: 'الراوتر متصل بسيرفر تحكم عن بعد:\n' + url + '\n\nهذا مؤشر اختراق محتمل. أغلق TR-069 فوراً.',
+          fixable: true,
+          fixLabel: 'إغلاق TR-069',
+          fixAction: { url: '/api/security/fix/tr069' },
+        };
+      }
+
+      // مفعّل + URL فاضي = خامل
+      return {
+        id: 'tr069',
+        severity: SEV.MEDIUM,
+        title: 'TR-069 مفعّل (خامل)',
+        description: 'TR-069 مفعّل لكن بدون عنوان — الراوتر في انتظار أوامر. أغلق هذا البروتوكول للأمان.',
+        fixable: true,
+        fixLabel: 'إغلاق TR-069',
+        fixAction: { url: '/api/security/fix/tr069' },
+      };
+    } catch (e) {
+      return { id: 'tr069', severity: SEV.LOW, title: 'تعذر فحص TR-069', description: e.message };
+    }
+  }
+
+  async function checkSNMP(router) {
+    try {
+      const r = await router._req('/snmp.htm');
+      const html = r.body;
+      const enabled = isSelectEnabled(html, 'snmpEnabled');
+      const communityRO = getInputValue(html, 'snmpCommunityRO');
+      const communityRW = getInputValue(html, 'snmpCommunityRW');
+      const weakCommunities = ['public', 'private', 'admin', 'cisco', 'manager'];
+
+      if (!enabled) {
+        const hasWeakCommunity = weakCommunities.includes(communityRO.toLowerCase())
+                              || weakCommunities.includes(communityRW.toLowerCase());
+        if (hasWeakCommunity) {
+          return {
+            id: 'snmp',
+            severity: SEV.MEDIUM,
+            title: 'SNMP معطّل — لكن كلمة المجتمع ضعيفة',
+            description: 'SNMP مغلق حالياً، لكن كلمة المجتمع "' + communityRO + '" خطيرة لو تم تفعيله. يُنصح بتغييرها.',
+          };
+        }
+        return { id: 'snmp', severity: SEV.OK, title: 'SNMP معطّل', description: 'البروتوكول مغلق — لا خطر.' };
+      }
+
+      const weak = weakCommunities.includes(communityRO.toLowerCase())
+                || weakCommunities.includes(communityRW.toLowerCase());
+      if (weak) {
+        return {
+          id: 'snmp',
+          severity: SEV.CRITICAL,
+          title: '🚨 SNMP مفعّل بكلمة مرور افتراضية!',
+          description: 'كلمة المجتمع: "' + communityRO + '" / "' + communityRW + '"\nأي شخص على الشبكة يمكنه قراءة إعدادات الراوتر أو تعديلها.',
+        };
+      }
+
+      return {
+        id: 'snmp',
+        severity: SEV.HIGH,
+        title: 'SNMP مفعّل',
+        description: 'بروتوكول إدارة الشبكة مفتوح — يُنصح بإغلاقه إذا لم تستخدمه.',
+      };
+    } catch (e) {
+      return { id: 'snmp', severity: SEV.LOW, title: 'تعذر فحص SNMP', description: e.message };
+    }
+  }
+
+  async function checkDDNS(router) {
+    try {
+      const r = await router._req('/ddns.htm');
+      const html = r.body;
+      const enabled = isSelectEnabled(html, 'enable');
+      const hostname = getInputValue(html, 'hostname');
+
+      if (!enabled) {
+        return { id: 'ddns', severity: SEV.OK, title: 'DDNS معطّل', description: 'لا يتم كشف IP المنزل.' };
+      }
+
+      return {
+        id: 'ddns',
+        severity: SEV.MEDIUM,
+        title: 'DDNS مفعّل',
+        description: 'DDNS يكشف عنوان IP المنزل للإنترنت عبر اسم نطاق' + (hostname ? ' (' + hostname + ')' : '') + '. استخدمه فقط إذا كنت تحتاجه.',
+      };
+    } catch (e) {
+      return { id: 'ddns', severity: SEV.LOW, title: 'تعذر فحص DDNS', description: e.message };
+    }
+  }
+
+  async function checkWiFiEncryption(router) {
+    try {
+      const wifi = await router.getWifiSettings();
+      const enc = wifi.encryption || 'None';
+
+      if (enc === 'None') {
+        return {
+          id: 'wifi-enc',
+          severity: SEV.CRITICAL,
+          title: '🚨 الشبكة بدون تشفير!',
+          description: 'أي شخص قريب من المنزل يمكنه الدخول لشبكتك واستخدام الإنترنت. فعّل WPA2/WPA3 فوراً.',
+          fixable: true,
+          fixLabel: 'الانتقال إلى الإعدادات',
+          fixAction: { navigate: 'wifi' },
+        };
+      }
+
+      if (enc === 'WEP') {
+        return {
+          id: 'wifi-enc',
+          severity: SEV.CRITICAL,
+          title: '🚨 تشفير WEP مكسور!',
+          description: 'WEP يمكن كسره في أقل من دقيقة بأدوات مجانية. غيّر إلى WPA2/WPA3 فوراً.',
+          fixable: true,
+          fixLabel: 'الانتقال إلى الإعدادات',
+          fixAction: { navigate: 'wifi' },
+        };
+      }
+
+      if (enc.startsWith('WPA-')) {
+        return {
+          id: 'wifi-enc',
+          severity: SEV.HIGH,
+          title: 'WPA (TKIP) قديم',
+          description: 'WPA الأصلي قديم وضعيف. يُنصح بالترقية إلى WPA2-AES أو WPA3.',
+          fixable: true,
+          fixLabel: 'الانتقال إلى الإعدادات',
+          fixAction: { navigate: 'wifi' },
+        };
+      }
+
+      return {
+        id: 'wifi-enc',
+        severity: SEV.OK,
+        title: 'تشفير قوي: ' + enc,
+        description: 'شبكة WiFi محمية بتشفير حديث.',
+      };
+    } catch (e) {
+      return { id: 'wifi-enc', severity: SEV.LOW, title: 'تعذر فحص التشفير', description: e.message };
+    }
+  }
+
+  async function checkMacFilter(router) {
+    try {
+      const filter = await router.getMacFilter();
+      if (filter.mode === 'disabled') {
+        return {
+          id: 'mac-filter',
+          severity: SEV.LOW,
+          title: 'فلترة MAC معطّلة',
+          description: 'أي جهاز يعرف كلمة المرور يمكنه الاتصال. لطبقة حماية إضافية، فعّل "سماح فقط" مع إضافة أجهزتك.',
+        };
+      }
+      return {
+        id: 'mac-filter',
+        severity: SEV.OK,
+        title: 'فلترة MAC مفعّلة (' + filter.mode + ')',
+        description: 'عدد الأجهزة المسموح/المحظور: ' + filter.macs.length,
+      };
+    } catch (e) {
+      return { id: 'mac-filter', severity: SEV.LOW, title: 'تعذر فحص فلترة MAC', description: e.message };
+    }
+  }
+
+  async function checkRemoteAdmin(router) {
+    try {
+      // محاولة فحص HTTP Remote Management على منفذ 80/8080 من الخارج
+      // هنا نكتفي بفحص صفحة /sysadmin أو ما يشابهها
+      // في TD-W8961N، الوصول عن بعد عبر TR-069 أو قواعد port forwarding
+      // سنعتبر هذا الفحص مكتملاً عبر TR-069 + firewall
+      return null;
+    } catch (e) { return null; }
+  }
+
+  // ═══════════════════════════════════════════
+  // Retry helpers (بعد إعادة تشغيل HTTP في الراوتر)
+  // ═══════════════════════════════════════════
+  async function _sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+  async function _reqWithRetry(router, path, opts, retries = 3) {
+    let lastErr = null;
+    for (let i = 0; i < retries; i++) {
+      try {
+        return await router._req(path, opts);
+      } catch (e) {
+        lastErr = e;
+        console.log('[security] retry ' + (i+1) + '/' + retries + ' for ' + path + ': ' + e.message);
+        await _sleep(3000);
+        // جرب login مرة أخرى لو الجلسة انتهت
+        try { await router.login(); } catch (le) {}
+      }
+    }
+    throw lastErr;
+  }
+
+  // ═══════════════════════════════════════════
+  // Main Scan
+  // ═══════════════════════════════════════════
+  async function runFullScan() {
+    const results = [];
+    const creds = window.appStore.getCredentials();
+    if (!creds) throw new Error('بيانات الراوتر غير محفوظة');
+
+    const router = new window.TPLinkRouter(creds);
+    await router.login();
+
+    try {
+      // الفحوصات — بالتسلسل (لأن الراوتر لا يقبل متوازي)
+      const checks = [
+        checkWiFiEncryption,
+        checkWPS,
+        checkUPnP,
+        checkTR069,
+        checkSNMP,
+        checkDDNS,
+        checkMacFilter,
+      ];
+
+      for (const check of checks) {
+        try {
+          const r = await check(router);
+          if (r) results.push(r);
+          // تأخير صغير
+          await new Promise(res => setTimeout(res, 200));
+        } catch (e) {
+          console.warn('[security] check failed:', e.message);
+        }
+      }
+    } finally {
+      try { await router.logout(); } catch (e) {}
+    }
+
+    // ترتيب حسب الخطورة
+    const order = { critical: 0, high: 1, medium: 2, low: 3, ok: 4 };
+    results.sort((a, b) => order[a.severity] - order[b.severity]);
+
+    // ملخص
+    const summary = {
+      critical: results.filter(r => r.severity === 'critical').length,
+      high: results.filter(r => r.severity === 'high').length,
+      medium: results.filter(r => r.severity === 'medium').length,
+      low: results.filter(r => r.severity === 'low').length,
+      ok: results.filter(r => r.severity === 'ok').length,
+      score: calculateScore(results),
+      at: Date.now(),
+    };
+
+    // حفظ بصمة
+    window.appStore.set('security-last-scan', { results, summary });
+
+    return { results, summary, SEV, SEV_LABEL, SEV_COLOR };
+  }
+
+  function calculateScore(results) {
+    // نقاط من 100
+    let score = 100;
+    for (const r of results) {
+      if (r.severity === 'critical') score -= 30;
+      else if (r.severity === 'high') score -= 20;
+      else if (r.severity === 'medium') score -= 10;
+      else if (r.severity === 'low') score -= 2;
+    }
+    return Math.max(0, score);
+  }
+
+  // ═══════════════════════════════════════════
+  // Fix Actions
+  // ═══════════════════════════════════════════
+  async function fixWPS(router) {
+    // إرسال disableWPS=ON
+    const body = 'disableWPS=ON&save=Apply+Changes';
+    await router._req('/form2Wsc.cgi', { method: 'POST', body });
+    await new Promise(r => setTimeout(r, 2500));
+    return { ok: true };
+  }
+
+  async function fixUPnP(router) {
+    // إرسال daemon=0
+    const body = 'daemon=0';
+    await router._req('/form2Upnp.cgi', { method: 'POST', body });
+    await new Promise(r => setTimeout(r, 2500));
+    return { ok: true };
+  }
+
+  async function fixTR069(router) {
+    // إرسال cwmpserverenable غير محدد (إلغاء التفعيل)
+    const body = 'cwmpserverurl=&cwmpserveruser=&cwmpserverpwd=&cwmpinformenable=Disable&cwmpinforminterval=300&cwmpconreqport=7547&apply=Apply+Changes';
+    await router._req('/form2cwmp.cgi', { method: 'POST', body });
+    await new Promise(r => setTimeout(r, 3000));
+    return { ok: true };
+  }
+
+  async function applyFix(fixName) {
+    const creds = window.appStore.getCredentials();
+    if (!creds) throw new Error('بيانات الراوتر غير محفوظة');
+    const router = new window.TPLinkRouter(creds);
+    await router.login();
+    try {
+      if (fixName === 'wps') return await fixWPS(router);
+      if (fixName === 'upnp') return await fixUPnP(router);
+      if (fixName === 'tr069') return await fixTR069(router);
+      throw new Error('إصلاح غير معروف: ' + fixName);
+    } finally {
+      try { await router.logout(); } catch (e) {}
+    }
+  }
+
+  // ═══════════════════════════════════════════
+  // Export
+  // ═══════════════════════════════════════════
+  window.security = {
+    runFullScan,
+    applyFix,
+    SEV,
+    SEV_LABEL,
+    SEV_COLOR,
+  };
+  console.log('[security] ready');
+})();

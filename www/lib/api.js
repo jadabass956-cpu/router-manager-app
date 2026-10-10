@@ -409,6 +409,16 @@
       const cached = window.appStore.get('security-last-scan', null);
       return jsonResponse(cached || { results: [], summary: null });
     },
+    'POST /api/security/fix-all': async (params, body) => {
+      try {
+        const names = Array.isArray(body.names) ? body.names : [];
+        if (!names.length) return errorResponse('BAD_REQUEST', 'قائمة الإصلاحات فارغة');
+        const r = await window.security.applyAllFixes(names);
+        return jsonResponse({ ok: r.succeeded.length > 0, ...r });
+      } catch (e) {
+        return errorResponse('FIX_ALL_FAILED', e.message, 500);
+      }
+    },
     'POST /api/security/fix/:name': async (params) => {
       try {
         const r = await window.security.applyFix(params.name);

@@ -1,0 +1,70 @@
+  // ═══════════════════════════════════════════
+  // Smart Form Builder — يقرأ كل حقول الفورم
+  // ═══════════════════════════════════════════
+  function buildFormBody(html, formName, overrides) {
+    overrides = overrides || {};
+    const formRe = new RegExp('<form[^>]*name\\s*=\\s*["\x27]?' + formName + '["\x27]?[^>]*>([\\s\\S]*?)<\\/form>', 'i');
+    const fm = html.match(formRe);
+    if (!fm) return null;
+
+    const fields = {};
+
+    // inputs
+    const inputRe = /<input([^>]*)>/gi;
+    let mi;
+    while ((mi = inputRe.exec(fm[1])) !== null) {
+      const attrs = mi[1];
+      const typeM = attrs.match(/type\\s*=\\s*["\x27]?([^"\x27\\s>]+)/i);
+      const type = typeM ? typeM[1].toLowerCase() : 'text';
+      const nameM = attrs.match(/name\\s*=\\s*["\x27]?([^"\x27\\s>]+)/i);
+      if (!nameM) continue;
+      const name = nameM[1];
+      const valueM = attrs.match(/value\\s*=\\s*["\x27]?([^"\x27>]*)/i);
+      const value = valueM ? valueM[1] : '';
+      const isChecked = /\\schecked/i.test(attrs);
+
+      if (type === 'checkbox' || type === 'radio') {
+        if (isChecked) fields[name] = value;
+      } else if (type === 'submit') {
+        if (/apply|send|save/i.test(value)) fields[name] = value;
+      } else if (type === 'reset' || type === 'button') {
+        // skip
+      } else {
+        fields[name] = value;
+      }
+    }
+
+    // selects
+    const selectRe = /<select([^>]*)>([\\s\\S]*?)<\\/select>/gi;
+    let ms;
+    while ((ms = selectRe.exec(fm[1])) !== null) {
+      const attrs = ms[1];
+      const body = ms[2];
+      const nameM = attrs.match(/name\\s*=\\s*["\x27]?([^"\x27\\s>]+)/i);
+      if (!nameM) continue;
+      const name = nameM[1];
+      const selOpt = body.match(/<option[^>]*value\\s*=\\s*["\x27]?([^"\x27\\s>]*)["\x27]?[^>]*selected/i);
+      if (selOpt) fields[name] = selOpt[1];
+      else {
+        const firstOpt = body.match(/<option[^>]*value\\s*=\\s*["\x27]?([^"\x27\\s>]*)["\x27]?/i);
+        if (firstOpt) fields[name] = firstOpt[1];
+      }
+    }
+
+    // overrides
+    Object.keys(overrides).forEach(function(k) {
+      const v = overrides[k];
+      if (v === null || v === undefined || v === false) {
+        delete fields[k];
+      } else if (v === true) {
+        fields[k] = fields[k] || 'ON';
+      } else {
+        fields[k] = v;
+      }
+    });
+
+    return Object.keys(fields)
+      .map(function(k) { return encodeURIComponent(k) + '=' + encodeURIComponent(fields[k]); })
+      .join('&');
+  }
+

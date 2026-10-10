@@ -330,6 +330,77 @@
   }
 
   // ═══════════════════════════════════════════
+  // Smart Form Builder — يقرأ كل حقول الفورم
+  // ═══════════════════════════════════════════
+  function buildFormBody(html, formName, overrides) {
+    overrides = overrides || {};
+    var formRe = new RegExp('<form[^>]*name\\s*=\\s*["\x27]?' + formName + '["\x27]?[^>]*>([\\s\\S]*?)<\\/form>', 'i');
+    var fm = html.match(formRe);
+    if (!fm) return null;
+
+    var fields = {};
+    var inner = fm[1];
+
+    // inputs
+    var inputRe = /<input([^>]*)>/gi;
+    var mi;
+    while ((mi = inputRe.exec(inner)) !== null) {
+      var attrs = mi[1];
+      var typeM = attrs.match(/type\s*=\s*["\x27]?([^"\x27\s>]+)/i);
+      var type = typeM ? typeM[1].toLowerCase() : 'text';
+      var nameM = attrs.match(/name\s*=\s*["\x27]?([^"\x27\s>]+)/i);
+      if (!nameM) continue;
+      var name = nameM[1];
+      var valueM = attrs.match(/value\s*=\s*["\x27]?([^"\x27>]*)/i);
+      var value = valueM ? valueM[1] : '';
+      var isChecked = /\schecked/i.test(attrs);
+
+      if (type === 'checkbox' || type === 'radio') {
+        if (isChecked) fields[name] = value;
+      } else if (type === 'submit') {
+        if (/apply|send|save/i.test(value)) fields[name] = value;
+      } else if (type === 'reset' || type === 'button') {
+        // skip
+      } else {
+        fields[name] = value;
+      }
+    }
+
+    // selects
+    var selectRe = /<select([^>]*)>([\s\S]*?)<\/select>/gi;
+    var ms;
+    while ((ms = selectRe.exec(inner)) !== null) {
+      var sAttrs = ms[1];
+      var sBody = ms[2];
+      var sNameM = sAttrs.match(/name\s*=\s*["\x27]?([^"\x27\s>]+)/i);
+      if (!sNameM) continue;
+      var sName = sNameM[1];
+      var selOpt = sBody.match(/<option[^>]*value\s*=\s*["\x27]?([^"\x27\s>]*)["\x27]?[^>]*selected/i);
+      if (selOpt) fields[sName] = selOpt[1];
+      else {
+        var firstOpt = sBody.match(/<option[^>]*value\s*=\s*["\x27]?([^"\x27\s>]*)["\x27]?/i);
+        if (firstOpt) fields[sName] = firstOpt[1];
+      }
+    }
+
+    // overrides
+    Object.keys(overrides).forEach(function(k) {
+      var v = overrides[k];
+      if (v === null || v === undefined || v === false) {
+        delete fields[k];
+      } else if (v === true) {
+        fields[k] = fields[k] || 'ON';
+      } else {
+        fields[k] = v;
+      }
+    });
+
+    return Object.keys(fields)
+      .map(function(k) { return encodeURIComponent(k) + '=' + encodeURIComponent(fields[k]); })
+      .join('&');
+  }
+
+  // ═══════════════════════════════════════════
   // Retry helpers (بعد إعادة تشغيل HTTP في الراوتر)
   // ═══════════════════════════════════════════
   async function _sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
@@ -424,27 +495,39 @@
   // Fix Actions
   // ═══════════════════════════════════════════
   async function fixWPS(router) {
-    // إرسال disableWPS=ON
-    const body = 'disableWPS=ON&save=Apply+Changes';
+    var page = await _reqWithRetry(router, '/wlwps.htm');
+    var body = buildFormBody(page.body, 'formWsc', { 'disableWPS': 'ON' });
+    if (!body) throw new Error('تعذر بناء نموذج WPS');
+    console.log('[security] fixWPS POST:', body);
     await router._req('/form2Wsc.cgi', { method: 'POST', body });
-    await new Promise(r => setTimeout(r, 2500));
-    return { ok: true };
+    await _sleep(7000);
+
+    var after = await _reqWithRetry(router, '/wlwps.htm');
+    var chk = findInput(after.body, 'disableWPS');
+    var ok = isChecked(chk);
+    console.log('[security] WPS disabled:', ok);
+    return { ok: ok, verified: true };
   }
 
   async function fixUPnP(router) {
-    // إرسال daemon=0
-    const body = 'daemon=0';
+    var page = await _reqWithRetry(router, '/upnp.htm');
+    var body = buildFormBody(page.body, 'upnp', { 'daemon': '0' });
+    if (!body) throw new Error('تعذر بناء نموذج UPnP');
+    console.log('[security] fixUPnP POST:', body);
     await router._req('/form2Upnp.cgi', { method: 'POST', body });
-    await new Promise(r => setTimeout(r, 2500));
-    return { ok: true };
+    await _sleep(7000);
+
+    var after = await _reqWithRetry(router, '/upnp.htm');
+    var enabled = isSelectEnabled(after.body, 'daemon');
+    var ok = !enabled;
+    console.log('[security] UPnP disabled:', ok);
+    return { ok: ok, verified: true };
   }
 
   async function fixTR069(router) {
-    // إرسال cwmpserverenable غير محدد (إلغاء التفعيل)
-    const body = 'cwmpserverurl=&cwmpserveruser=&cwmpserverpwd=&cwmpinformenable=Disable&cwmpinforminterval=300&cwmpconreqport=7547&apply=Apply+Changes';
-    await router._req('/form2cwmp.cgi', { method: 'POST', body });
-    await new Promise(r => setTimeout(r, 3000));
-    return { ok: true };
+    // ⚠️ TR-069 مفعّل غالباً من المزود — لا نعطّله تلقائياً
+    // هذا لتجنب قطع الاتصال مع ISP
+    throw new Error('TR-069 يُدار عادةً من مزود الخدمة. اتصل بالمزود قبل إغلاقه.');
   }
 
   async function applyFix(fixName) {
@@ -465,9 +548,50 @@
   // ═══════════════════════════════════════════
   // Export
   // ═══════════════════════════════════════════
+  async function applyAllFixes(fixNames) {
+    var creds = window.appStore.getCredentials();
+    if (!creds) throw new Error('بيانات الراوتر غير محفوظة');
+
+    var router = new window.TPLinkRouter(creds);
+    await router.login();
+
+    var results = [];
+    var succeeded = [];
+    var failed = [];
+
+    for (var i = 0; i < fixNames.length; i++) {
+      var name = fixNames[i];
+      try {
+        var r;
+        if (name === 'wps') r = await fixWPS(router);
+        else if (name === 'upnp') r = await fixUPnP(router);
+        else if (name === 'tr069') {
+          // نتخطى TR-069 — يدار من المزود
+          failed.push({ name: name, error: 'TR-069 يُدار من المزود — تجاهلناه' });
+          continue;
+        }
+        else { failed.push({ name: name, error: 'غير معروف' }); continue; }
+
+        if (r && r.ok) succeeded.push(name);
+        else failed.push({ name: name, error: 'الراوتر لم يؤكد التطبيق' });
+        results.push({ name: name, result: r });
+
+        // انتظار بين الإصلاحات
+        if (i < fixNames.length - 1) await _sleep(3000);
+      } catch (e) {
+        failed.push({ name: name, error: e.message });
+      }
+    }
+
+    try { await router.logout(); } catch (e) {}
+
+    return { succeeded: succeeded, failed: failed, results: results };
+  }
+
   window.security = {
     runFullScan,
     applyFix,
+    applyAllFixes,
     SEV,
     SEV_LABEL,
     SEV_COLOR,
