@@ -40,25 +40,50 @@
   function upload(url, totalBytes, timeout = BASE_TIMEOUT) {
     return new Promise((resolve, reject) => {
       const started = performance.now();
+      let sent = 0;
       let finished = false;
+
       const finish = (err) => {
         if (finished) return;
         finished = true;
         if (err) return reject(err);
-        resolve({ bytes: totalBytes, ms: performance.now() - started });
+        const ms = performance.now() - started;
+        console.log('[speed] upload done: ' + totalBytes + ' bytes in ' + Math.round(ms) + ' ms');
+        resolve({ bytes: totalBytes, ms });
       };
 
-      // نبني بلوك 64KB ونكرره
-      const chunk = new Uint8Array(64 * 1024);
-      const blob = new Blob([chunk], { type: 'application/octet-stream' });
+      const controller = new AbortController();
+      const timer = setTimeout(() => { controller.abort(); finish(new Error('TIMEOUT')); }, timeout);
+
+      // ═══ ReadableStream يرسل البيانات تدريجياً ═══
+      let stream;
+      try {
+        stream = new ReadableStream({
+          async pull(c) {
+            if (sent >= totalBytes) { c.close(); return; }
+            const size = Math.min(64 * 1024, totalBytes - sent);
+            const arr = new Uint8Array(size);
+            // بيانات عشوائية (غير قابلة للضغط)
+            crypto.getRandomValues(arr);
+            c.enqueue(arr);
+            sent += size;
+          }
+        });
+      } catch (e) {
+        clearTimeout(timer);
+        finish(new Error('STREAM_NOT_SUPPORTED'));
+        return;
+      }
 
       fetch(url, {
         method: 'POST',
-        body: blob,
+        body: stream,
         headers: { 'Content-Type': 'application/octet-stream' },
+        signal: controller.signal,
+        duplex: 'half',
       })
-        .then(() => finish())
-        .catch(finish);
+        .then(() => { clearTimeout(timer); finish(); })
+        .catch((e) => { clearTimeout(timer); finish(e); });
     });
   }
 

@@ -4,26 +4,60 @@
 
   const originalFetch = window.fetch.bind(window);
 
-  // ═══════════ Session Helper (مع Queue) ═══════════
-  // الراوتر TD-W8961N لا يقبل طلبات متوازية — نُسلسل كل الطلبات
+  // ═══════════ Session Helper (Queue + Session Cache) ═══════════
+  // الراوتر TD-W8961N لا يتحمل طلبات متعددة. الحل:
+  //   1) queue لكل الطلبات (طلب واحد في نفس الوقت)
+  //   2) جلسة مشتركة تعيش 5 دقائق (بدل login/logout لكل طلب)
   let _queue = Promise.resolve();
+  let _session = null;
+  let _sessionTimer = null;
+  const SESSION_TTL = 5 * 60 * 1000; // 5 دقائق
+
+  async function _openSession() {
+    const creds = window.appStore.getCredentials();
+    if (!creds) throw new Error('بيانات الراوتر غير محفوظة');
+    const router = new window.TPLinkRouter(creds);
+    await router.login();
+    _session = { router, creds, at: Date.now() };
+    if (_sessionTimer) clearTimeout(_sessionTimer);
+    _sessionTimer = setTimeout(_closeSession, SESSION_TTL);
+    console.log('[session] opened for', creds.host);
+    return _session;
+  }
+
+  async function _closeSession() {
+    if (_sessionTimer) { clearTimeout(_sessionTimer); _sessionTimer = null; }
+    if (!_session) return;
+    try { await _session.router.logout(); } catch (e) {}
+    console.log('[session] closed');
+    _session = null;
+  }
+
+  async function _getRouter() {
+    const creds = window.appStore.getCredentials();
+    if (!creds) throw new Error('بيانات الراوتر غير محفوظة');
+    if (_session && _session.creds.host === creds.host && _session.creds.username === creds.username) {
+      return _session.router;
+    }
+    if (_session) await _closeSession();
+    const s = await _openSession();
+    return s.router;
+  }
 
   function withRouter(fn) {
     const run = async () => {
-      const creds = window.appStore.getCredentials();
-      if (!creds) throw new Error('بيانات الراوتر غير محفوظة');
-      const router = new window.TPLinkRouter(creds);
-      try {
-        await router.login();
-        return await fn(router);
-      } finally {
-        try { await router.logout(); } catch (e) {}
-      }
+      const router = await _getRouter();
+      return await fn(router);
     };
     const result = _queue.then(run);
     _queue = result.catch(() => {});
     return result;
   }
+
+  function resetSession() { return _closeSession(); }
+
+  // إغلاق الجلسة عند إغلاق التطبيق
+  window.addEventListener('beforeunload', () => { _closeSession(); });
 
   // ═══════════ Errors ═══════════
   function jsonResponse(data, status = 200) {
@@ -500,8 +534,9 @@
   let pollTimer = null;
   function startTrafficPoll() {
     if (pollTimer) return;
-    trafficPoll();
-    pollTimer = setInterval(trafficPoll, 60000);
+    // ننتظر 10 ثواني قبل أول poll (نخلي الصفحة تحمّل أولاً)
+    setTimeout(trafficPoll, 10000);
+    pollTimer = setInterval(trafficPoll, 120000); // كل دقيقتين
   }
   function stopTrafficPoll() {
     if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
@@ -512,6 +547,7 @@
     startTrafficPoll,
     stopTrafficPoll,
     withRouter,
+    resetSession,
   };
 
   console.log('[api] interceptor ready');
