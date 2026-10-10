@@ -4,17 +4,25 @@
 
   const originalFetch = window.fetch.bind(window);
 
-  // ═══════════ Session Helper ═══════════
-  async function withRouter(fn) {
-    const creds = window.appStore.getCredentials();
-    if (!creds) throw new Error('بيانات الراوتر غير محفوظة');
-    const router = new window.TPLinkRouter(creds);
-    try {
-      await router.login();
-      return await fn(router);
-    } finally {
-      try { await router.logout(); } catch (e) {}
-    }
+  // ═══════════ Session Helper (مع Queue) ═══════════
+  // الراوتر TD-W8961N لا يقبل طلبات متوازية — نُسلسل كل الطلبات
+  let _queue = Promise.resolve();
+
+  function withRouter(fn) {
+    const run = async () => {
+      const creds = window.appStore.getCredentials();
+      if (!creds) throw new Error('بيانات الراوتر غير محفوظة');
+      const router = new window.TPLinkRouter(creds);
+      try {
+        await router.login();
+        return await fn(router);
+      } finally {
+        try { await router.logout(); } catch (e) {}
+      }
+    };
+    const result = _queue.then(run);
+    _queue = result.catch(() => {});
+    return result;
   }
 
   // ═══════════ Errors ═══════════

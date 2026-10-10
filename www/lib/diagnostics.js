@@ -95,6 +95,34 @@
       log('warn', ...args);
       origWarn(...args);
     };
+
+    const origLog = console.log.bind(console);
+    console.log = function(...args) {
+      log('info', ...args);
+      origLog(...args);
+    };
+
+    // اعتراض fetch (بعد إعداد interceptor)
+    setTimeout(() => {
+      if (window.fetch && !window.__fetchWrapped) {
+        const origFetch = window.fetch.bind(window);
+        window.fetch = async function(url, opts) {
+          const str = String(url);
+          const t0 = performance.now();
+          try {
+            const res = await origFetch(url, opts);
+            const dt = Math.round(performance.now() - t0);
+            log('info', 'FETCH ' + str + ' → ' + res.status + ' (' + dt + 'ms)');
+            return res;
+          } catch (e) {
+            const dt = Math.round(performance.now() - t0);
+            log('error', 'FETCH FAIL ' + str + ' (' + dt + 'ms): ' + e.message);
+            throw e;
+          }
+        };
+        window.__fetchWrapped = true;
+      }
+    }, 100);
   }
 
   window.diag = {
