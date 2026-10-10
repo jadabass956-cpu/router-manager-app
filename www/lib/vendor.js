@@ -661,6 +661,52 @@
     '5c:b4:3e': ['Intel', 'desktop'], '5c:b5:24': ['Intel', 'desktop'], '5c:c4:94': ['Intel', 'desktop'],
     '5c:cc:a0': ['Intel', 'desktop'], '5c:e8:83': ['Intel', 'desktop'], '5c:f6:dc': ['Intel', 'desktop'],
     '5c:f8:21': ['Intel', 'desktop'], '5c:f9:38': ['Intel', 'desktop'],
+
+    // ═══ Transsion: Tecno / Infinix / itel ═══
+    '00:9e:c8': ['Tecno', 'phone'], '04:e5:48': ['Tecno', 'phone'], '08:8e:dc': ['Tecno', 'phone'],
+    '0c:2c:54': ['Tecno', 'phone'], '10:f0:65': ['Tecno', 'phone'], '18:60:24': ['Tecno', 'phone'],
+    '20:47:b5': ['Tecno', 'phone'], '24:0f:5e': ['Tecno', 'phone'], '28:fa:19': ['Tecno', 'phone'],
+    '2c:9e:fc': ['Tecno', 'phone'], '30:0e:d5': ['Tecno', 'phone'], '38:67:93': ['Tecno', 'phone'],
+    '3c:a0:67': ['Tecno', 'phone'], '44:ae:25': ['Tecno', 'phone'], '48:b8:de': ['Tecno', 'phone'],
+    '4c:5e:0c': ['Tecno', 'phone'], '54:32:04': ['Tecno', 'phone'], '5c:20:d0': ['Tecno', 'phone'],
+    '60:1d:9d': ['Tecno', 'phone'], '68:3e:34': ['Tecno', 'phone'], '74:0e:db': ['Tecno', 'phone'],
+    '80:5f:c5': ['Tecno', 'phone'], '84:a9:3e': ['Tecno', 'phone'], '88:51:7a': ['Tecno', 'phone'],
+    '8c:e3:8e': ['Tecno', 'phone'], '90:2b:d2': ['Tecno', 'phone'], '94:5f:34': ['Tecno', 'phone'],
+    '98:09:cf': ['Tecno', 'phone'], '9c:5c:8e': ['Tecno', 'phone'], 'a0:c9:a0': ['Tecno', 'phone'],
+    'a8:7e:33': ['Tecno', 'phone'], 'ac:1f:74': ['Tecno', 'phone'], 'b0:5c:da': ['Tecno', 'phone'],
+    'b4:0e:96': ['Tecno', 'phone'], 'b8:37:65': ['Tecno', 'phone'], 'c0:e4:34': ['Tecno', 'phone'],
+    'c8:00:d7': ['Tecno', 'phone'], 'cc:2d:1b': ['Tecno', 'phone'], 'd4:5d:64': ['Tecno', 'phone'],
+    'd8:47:32': ['Tecno', 'phone'], 'dc:2c:26': ['Tecno', 'phone'], 'e0:1f:88': ['Tecno', 'phone'],
+    'e4:11:5f': ['Tecno', 'phone'], 'e8:4e:06': ['Tecno', 'phone'], 'f0:5f:5a': ['Tecno', 'phone'],
+
+    // ─── Infinix ───
+    '0c:9d:92': ['Infinix', 'phone'], '10:2e:af': ['Infinix', 'phone'], '14:91:82': ['Infinix', 'phone'],
+    '1c:93:c4': ['Infinix', 'phone'], '24:69:68': ['Infinix', 'phone'], '28:6c:07': ['Infinix', 'phone'],
+    '2c:5a:0f': ['Infinix', 'phone'], '34:7e:5c': ['Infinix', 'phone'], '38:4b:76': ['Infinix', 'phone'],
+    '40:a3:6b': ['Infinix', 'phone'], '48:8e:ef': ['Infinix', 'phone'], '50:8f:4c': ['Infinix', 'phone'],
+    '5c:9a:d8': ['Infinix', 'phone'], '60:af:6d': ['Infinix', 'phone'], '68:eb:ae': ['Infinix', 'phone'],
+    '70:3a:0e': ['Infinix', 'phone'], '78:44:76': ['Infinix', 'phone'], '80:ea:07': ['Infinix', 'phone'],
+    '88:e3:ab': ['Infinix', 'phone'], '90:2b:34': ['Infinix', 'phone'], '98:fa:e3': ['Infinix', 'phone'],
+    'a0:06:55': ['Infinix', 'phone'], 'a4:9f:85': ['Infinix', 'phone'], 'a8:8e:24': ['Infinix', 'phone'],
+    'b0:22:7a': ['Infinix', 'phone'], 'b4:14:89': ['Infinix', 'phone'], 'b8:5f:98': ['Infinix', 'phone'],
+    'c0:ee:fb': ['Infinix', 'phone'], 'c4:5b:e2': ['Infinix', 'phone'], 'c8:82:34': ['Infinix', 'phone'],
+    'cc:81:da': ['Infinix', 'phone'], 'd0:5f:d4': ['Infinix', 'phone'], 'd4:a1:48': ['Infinix', 'phone'],
+    'd8:32:14': ['Infinix', 'phone'], 'dc:44:6d': ['Infinix', 'phone'], 'e0:cb:1d': ['Infinix', 'phone'],
+    'e4:5a:a2': ['Infinix', 'phone'], 'e8:9e:0c': ['Infinix', 'phone'], 'f0:79:59': ['Infinix', 'phone'],
+    'f4:0e:22': ['Infinix', 'phone'],
+
+    // ─── itel ───
+    '04:3f:72': ['itel', 'phone'], '0c:8c:24': ['itel', 'phone'], '10:47:80': ['itel', 'phone'],
+    '18:0d:2c': ['itel', 'phone'], '1c:c9:9f': ['itel', 'phone'], '24:0f:9b': ['itel', 'phone'],
+    '2c:1a:31': ['itel', 'phone'], '34:0b:40': ['itel', 'phone'], '3c:1e:04': ['itel', 'phone'],
+    '40:a5:ef': ['itel', 'phone'], '48:29:52': ['itel', 'phone'], '50:d2:f5': ['itel', 'phone'],
+    '58:9b:0b': ['itel', 'phone'], '64:b8:53': ['itel', 'phone'], '6c:f1:7e': ['itel', 'phone'],
+    '70:2a:d5': ['itel', 'phone'], '78:32:1b': ['itel', 'phone'], '80:5e:0c': ['itel', 'phone'],
+    '88:1d:fc': ['itel', 'phone'], '90:4e:2b': ['itel', 'phone'], '9c:3d:cf': ['itel', 'phone'],
+    'a0:9e:1a': ['itel', 'phone'], 'a8:db:03': ['itel', 'phone'], 'b0:2a:43': ['itel', 'phone'],
+    'b8:9f:09': ['itel', 'phone'], 'c0:38:96': ['itel', 'phone'], 'c8:47:8c': ['itel', 'phone'],
+    'd0:5b:a8': ['itel', 'phone'], 'd8:8a:3b': ['itel', 'phone'], 'e0:9d:31': ['itel', 'phone'],
+    'e8:1f:6b': ['itel', 'phone'], 'f0:9f:c2': ['itel', 'phone'], 'f8:5e:a0': ['itel', 'phone'],
   };
 
   // أسماء عربية
@@ -671,7 +717,7 @@
     'Motorola': 'موتورولا', 'Lenovo': 'لينوفو', 'Asus': 'أسوس', 'Acer': 'أيسر',
     'Dell': 'ديل', 'HP': 'HP', 'Intel': 'إنتل', 'Espressif': 'ESP (IoT)',
     'Tuya': 'Tuya (IoT)', 'Sonoff': 'Sonoff (IoT)', 'TP-Link': 'TP-Link',
-    'D-Link': 'D-Link', 'Netgear': 'نتجير', 'Amazon': 'أمازون',
+    'D-Link': 'D-Link', 'Netgear': 'نتجير', 'Amazon': 'أمازون', 'Tecno': 'تكنو', 'Infinix': 'إنفينكس', 'itel': 'آي تل',
     'Google': 'جوجل', 'Microsoft': 'مايكروسوفت', 'Sony': 'سوني', 'LG': 'إل جي',
   };
 
@@ -692,13 +738,22 @@
     const prefix = m.slice(0, 2) + ':' + m.slice(2, 4) + ':' + m.slice(4, 6);
     const entry = OUI[prefix];
 
-    if (!entry) return { vendor: null, type: 'unknown', icon: TYPE_ICON.unknown };
+    if (!entry) {
+      return {
+        vendor: 'Unknown',
+        vendorAr: 'جهاز',
+        type: 'unknown',
+        icon: TYPE_ICON.unknown,
+        unknown: true,
+      };
+    }
     const [vendor, type] = entry;
     return {
       vendor,
       vendorAr: VENDOR_AR[vendor] || vendor,
       type,
       icon: TYPE_ICON[type] || TYPE_ICON.unknown,
+      unknown: false,
     };
   }
 

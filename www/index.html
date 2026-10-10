@@ -150,7 +150,7 @@ tailwind.config = {
               <div class="flex items-center gap-2 mb-1 flex-wrap">
                 <span x-show="getVendor(d.mac).icon !== '❓'" x-text="getVendor(d.mac).icon" class="text-base"></span>
                 <span class="font-semibold text-sm truncate" x-text="d.name || d.ip || 'جهاز'"></span>
-                <span x-show="getVendor(d.mac).vendor" class="text-[9px] px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400" x-text="getVendor(d.mac).vendorAr || getVendor(d.mac).vendor"></span>
+                <span x-show="getVendor(d.mac).vendor && !getVendor(d.mac).unknown" class="text-[9px] px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400" x-text="getVendor(d.mac).vendorAr || getVendor(d.mac).vendor"></span>
                 <span x-show="d.name" class="text-[10px] text-gray-400 font-mono" x-text="d.ip || ''"></span>
                 <template x-if="d.blocked && d.unblockAt">
                   <span class="text-[10px] px-2 py-0.5 rounded-full font-medium bg-red-100 dark:bg-red-950/50 text-red-700 dark:text-red-400"
