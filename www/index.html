@@ -629,7 +629,10 @@ tailwind.config = {
     <div class="rounded-2xl p-6 text-white text-center"
          :style="'background: linear-gradient(135deg, ' + securityScoreColor(security.score) + ' 0%, ' + securityScoreColor(security.score) + 'cc 100%)'">
       <p class="text-xs opacity-80 mb-2">تقييم أمان الراوتر</p>
-      <div class="text-6xl font-black tabular-nums leading-none" x-text="security.score !== null ? security.score : '—'"></div>
+      <div class="flex items-baseline justify-center gap-1">
+        <span class="text-6xl font-black tabular-nums leading-none" x-text="security.score !== null ? security.score : '—'"></span>
+        <span class="text-2xl font-bold opacity-70" x-show="security.score !== null">%</span>
+      </div>
       <p class="text-sm mt-2 opacity-90" x-text="securityScoreLabel(security.score)"></p>
 
       <!-- تفصيل سريع -->
@@ -2069,11 +2072,13 @@ function app() {
             const ok = this.security.results.filter(x => x.severity === 'ok').length;
             this.security.summary = { critical: crit, high, medium: med, low, ok, score: Math.max(0, 100 - crit*30 - high*20 - med*10 - low*2), at: Date.now() };
             this.security.score = this.security.summary.score;
-            this.closeConfirm();
+            this.confirmModal.loading = false;
+            this.closeConfirm(true);
             setTimeout(() => this.runSecurityScan(), 15000);
           } catch (e) {
             this.toast('فشل الإصلاح: ' + e.message, 'error');
             this.confirmModal.loading = false;
+            this.closeConfirm(true);
           }
         },
       });
@@ -2110,10 +2115,16 @@ function app() {
           this.security.fixingAll = true;
           this.toast('⏳ جاري الإصلاح… لا تغلق التطبيق', 'info');
           try {
-            const r = await this.api('/api/security/fix-all', {
-              method: 'POST',
-              body: JSON.stringify({ names: names }),
-            });
+            const timeoutPromise = new Promise((_, reject) =>
+              setTimeout(() => reject(new Error('انتهت المهلة — حاول مرة أخرى')), 90000)
+            );
+            const r = await Promise.race([
+              this.api('/api/security/fix-all', {
+                method: 'POST',
+                body: JSON.stringify({ names: names }),
+              }),
+              timeoutPromise,
+            ]);
             const okCount = (r.succeeded || []).length;
             const failCount = (r.failed || []).length;
             if (okCount > 0) {
@@ -2137,12 +2148,14 @@ function app() {
             const ok = this.security.results.filter(x => x.severity === 'ok').length;
             this.security.summary = { critical: crit, high, medium: med, low, ok, score: Math.max(0, 100 - crit*30 - high*20 - med*10 - low*2), at: Date.now() };
             this.security.score = this.security.summary.score;
-            this.closeConfirm();
+            this.confirmModal.loading = false;
+            this.closeConfirm(true);
             this.toast('🔄 إعادة الفحص بعد 20 ثانية…', 'info');
             setTimeout(() => this.runSecurityScan(), 20000);
           } catch (e) {
             this.toast('فشل الإصلاح: ' + e.message, 'error');
             this.confirmModal.loading = false;
+            this.closeConfirm(true);
           } finally {
             this.security.fixingAll = false;
           }
@@ -2161,8 +2174,9 @@ function app() {
         onConfirm: cfg.onConfirm || null,
       };
     },
-    closeConfirm() {
-      if (this.confirmModal.loading) return;
+    closeConfirm(force) {
+      if (this.confirmModal.loading && !force) return;
+      this.confirmModal.loading = false;
       this.confirmModal.open = false;
     },
     async confirmAction() {
