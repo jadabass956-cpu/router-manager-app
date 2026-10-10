@@ -396,6 +396,28 @@
       } catch (e) { return errorResponse('INTERNAL', e.message, 500); }
     },
 
+    // ── Security ──
+    'GET /api/security/scan': async () => {
+      try {
+        const r = await window.security.runFullScan();
+        return jsonResponse(r);
+      } catch (e) {
+        return errorResponse('SECURITY_SCAN_FAILED', e.message, 500);
+      }
+    },
+    'GET /api/security/last-scan': async () => {
+      const cached = window.appStore.get('security-last-scan', null);
+      return jsonResponse(cached || { results: [], summary: null });
+    },
+    'POST /api/security/fix/:name': async (params) => {
+      try {
+        const r = await window.security.applyFix(params.name);
+        return jsonResponse({ ok: true, ...r });
+      } catch (e) {
+        return errorResponse('FIX_FAILED', e.message, 500);
+      }
+    },
+
     // ── Rules ──
     'GET /api/rules': async () => jsonResponse({ rules: window.appStore.getRules(), state: window.appStore.getBlockState() }),
 
