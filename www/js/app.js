@@ -121,6 +121,58 @@ async function testMacFilter() {
   }
 }
 
+function testMd5() {
+  log('اختبار MD5:');
+  const tests = ['admin', '1234', 'password', 'Admin'];
+  let out = 'MD5 tests:\n\n';
+  for (const t of tests) {
+    const h = window.MD5(t);
+    out += 'MD5("' + t + '") = ' + h + '\n';
+    log('  MD5("' + t + '") = ' + h);
+  }
+  out += '\nالتوقع: MD5("admin") = 21232f297a57a5a743894a0e4a801fc3\n';
+  out += 'التوقع: MD5("1234") = 81dc9bdb52d04dc20036dbd8313ed055\n';
+  showOutput(out);
+}
+
+async function testDirectLogin() {
+  const cfg = loadConfig();
+  if (!cfg) { showSetup(); return; }
+  setStatus('info', 'اختبار دخول مباشر…');
+  log('اختبار POST /login.cgi مباشرة');
+  const u = window.MD5(cfg.username);
+  const p = window.MD5(cfg.password);
+  const body = 'usernameEncrypt=' + u + '&passwordEncrypt=' + p + '&submit.htm%3Flogin.htm=Send';
+  log('MD5(username) = ' + u);
+  log('MD5(password) = ' + p);
+  log('POST body: ' + body);
+  try {
+    const res = await window.http.post('http://' + cfg.host + '/login.cgi', body);
+    log('login.cgi status: ' + res.status);
+    log('login.cgi headers: ' + JSON.stringify(res.headers));
+    log('login.cgi body (500): ' + (res.body || '').slice(0, 500));
+    const check = await window.http.get('http://' + cfg.host + '/index.htm');
+    log('index.htm status: ' + check.status);
+    log('index.htm body (300): ' + (check.body || '').slice(0, 300));
+    showOutput(
+      'اختبار دخول مباشر\n\n' +
+      '=== POST /login.cgi ===\n' +
+      'Status: ' + res.status + '\n' +
+      'Headers: ' + JSON.stringify(res.headers, null, 2) + '\n\n' +
+      '=== Body (500 chars) ===\n' +
+      (res.body || '').slice(0, 500) + '\n\n' +
+      '=== GET /index.htm ===\n' +
+      'Status: ' + check.status + '\n' +
+      'Body (300 chars):\n' +
+      (check.body || '').slice(0, 300)
+    );
+  } catch (e) {
+    log('❌ ' + e.message);
+    showOutput('فشل:\n' + e.message);
+    setStatus('err', e.message);
+  }
+}
+
 function resetConfig() {
   if (!confirm('حذف بيانات الراوتر والعودة لشاشة الإعداد؟')) return;
   clearConfig();
