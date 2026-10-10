@@ -698,7 +698,7 @@ tailwind.config = {
 
               <!-- زر الإصلاح -->
               <button x-show="item.fixable && item.fixAction && item.fixAction.url"
-                      @click="applySecurityFix(item.fixAction.url.split('/').pop(), item.title)"
+                      @click="applySecurityFix(item)"
                       class="mt-3 px-4 py-2 rounded-lg text-white text-xs font-bold flex items-center gap-2"
                       :style="'background: ' + sevColor(item.severity)">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-3.5 h-3.5">

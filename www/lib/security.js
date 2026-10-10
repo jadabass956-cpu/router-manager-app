@@ -71,7 +71,7 @@
   // ═══════════════════════════════════════════
   async function checkWPS(router) {
     try {
-      const r = await router._req('/wlwps.htm');
+      const r = await _reqWithRetry(router, '/wlwps.htm');
       const html = r.body;
 
       // disableWPS checkbox: ON = WPS معطّل
@@ -104,7 +104,7 @@
 
   async function checkUPnP(router) {
     try {
-      const r = await router._req('/upnp.htm');
+      const r = await _reqWithRetry(router, '/upnp.htm');
       const html = r.body;
       const enabled = isSelectEnabled(html, 'daemon');
 
@@ -133,7 +133,7 @@
 
   async function checkTR069(router) {
     try {
-      const r = await router._req('/tr069.htm');
+      const r = await _reqWithRetry(router, '/tr069.htm');
       const html = r.body;
 
       const enabled = isSelectEnabled(html, 'cwmpserverenable');
@@ -327,6 +327,27 @@
       // سنعتبر هذا الفحص مكتملاً عبر TR-069 + firewall
       return null;
     } catch (e) { return null; }
+  }
+
+  // ═══════════════════════════════════════════
+  // Retry helpers (بعد إعادة تشغيل HTTP في الراوتر)
+  // ═══════════════════════════════════════════
+  async function _sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+  async function _reqWithRetry(router, path, opts, retries = 3) {
+    let lastErr = null;
+    for (let i = 0; i < retries; i++) {
+      try {
+        return await router._req(path, opts);
+      } catch (e) {
+        lastErr = e;
+        console.log('[security] retry ' + (i+1) + '/' + retries + ' for ' + path + ': ' + e.message);
+        await _sleep(3000);
+        // جرب login مرة أخرى لو الجلسة انتهت
+        try { await router.login(); } catch (le) {}
+      }
+    }
+    throw lastErr;
   }
 
   // ═══════════════════════════════════════════
