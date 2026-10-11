@@ -544,6 +544,16 @@
       return jsonResponse({ ok: true });
     },
 
+    // ── Connection Identity ──
+    'GET /api/security/identity': async () => {
+      try {
+        const r = await window.dnsCheck.detectIdentity();
+        return jsonResponse(r);
+      } catch (e) {
+        return errorResponse('IDENTITY_FAILED', e.message, 500);
+      }
+    },
+
     // ── Update ──
     'GET /api/update/version': async () => {
       const c = window.appStore.getUpdateCache();

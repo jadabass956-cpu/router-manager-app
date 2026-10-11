@@ -1,0 +1,2784 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#2563eb">
+<title>مدير الراوتر</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+tailwind.config = {
+  darkMode: 'class',
+  theme: {
+    extend: {
+      colors: {
+        primary: { DEFAULT: '#2563eb', dark: '#1d4ed8', light: '#3b82f6' },
+        success: '#16a34a', danger: '#dc2626', warning: '#ca8a04',
+      },
+      fontFamily: { sans: ['Tajawal', 'system-ui', 'sans-serif'] },
+      animation: {
+        'fade-in': 'fadeIn .2s ease-out',
+        'slide-up': 'slideUp .25s ease-out',
+        'pulse-slow': 'pulse 2s cubic-bezier(.4,0,.6,1) infinite',
+      },
+      keyframes: {
+        fadeIn: { from: { opacity: 0 }, to: { opacity: 1 } },
+        slideUp: { from: { transform: 'translateY(8px)', opacity: 0 }, to: { transform: 'translateY(0)', opacity: 1 } },
+      }
+    }
+  }
+}
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
+<script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+<style>
+  [x-cloak] { display: none !important; }
+  html { scroll-behavior: smooth; }
+  body { -webkit-tap-highlight-color: transparent; overscroll-behavior-y: contain; }
+  .skeleton { background: linear-gradient(90deg, rgba(0,0,0,.06) 25%, rgba(0,0,0,.12) 50%, rgba(0,0,0,.06) 75%); background-size: 200% 100%; animation: skel 1.4s infinite; }
+  .dark .skeleton { background: linear-gradient(90deg, rgba(255,255,255,.06) 25%, rgba(255,255,255,.12) 50%, rgba(255,255,255,.06) 75%); background-size: 200% 100%; }
+  @keyframes skel { 0% { background-position: 200% 0 } 100% { background-position: -200% 0 } }
+</style>
+</head>
+<body class="bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-gray-100 font-sans min-h-screen" x-data="app()" x-init="init()" x-cloak>
+
+<header class="sticky top-0 z-30 bg-white/80 dark:bg-gray-900/80 backdrop-blur border-b border-gray-200 dark:border-gray-800">
+  <div class="max-w-5xl mx-auto px-4 h-14 flex items-center gap-3">
+    <div class="flex items-center gap-2 flex-1 min-w-0">
+      <div class="w-8 h-8 rounded-lg bg-primary flex items-center justify-center text-white shrink-0">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4"><path d="M5 12.55a11 11 0 0114.08 0"/><path d="M1.42 9a16 16 0 0121.16 0"/><path d="M8.53 16.11a6 6 0 016.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></svg>
+      </div>
+      <h1 class="font-bold text-base truncate">مدير الراوتر</h1>
+    </div>
+    <button @click="checkHealth()" class="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-full border transition" :class="online ? 'border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-950/40 text-green-700 dark:text-green-400' : 'border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950/40 text-red-700 dark:text-red-400'">
+      <span class="w-1.5 h-1.5 rounded-full" :class="online ? 'bg-green-500 animate-pulse-slow' : 'bg-red-500'"></span>
+      <span x-text="online ? 'متصل' : 'غير متصل'"></span>
+    </button>
+    <button @click="refreshCurrent()" :disabled="isRefreshing()" class="w-9 h-9 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 flex items-center justify-center disabled:opacity-50">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4" :class="isRefreshing() && 'animate-spin'"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg>
+    </button>
+    <button @click="toggleDark()" class="w-9 h-9 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 flex items-center justify-center">
+      <svg x-show="!dark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>
+      <svg x-show="dark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+    </button>
+  </div>
+  <nav class="hidden md:flex max-w-5xl mx-auto px-4 gap-1 pb-2 -mt-1">
+    <template x-for="t in tabs" :key="t.id">
+      <button @click="tab = t.id" class="px-4 py-2 rounded-lg text-sm font-medium transition flex items-center gap-2" :class="tab === t.id ? 'bg-primary text-white' : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'">
+        <span x-html="t.icon" class="w-4 h-4"></span><span x-text="t.label"></span>
+      </button>
+    </template>
+  </nav>
+</header>
+
+<div x-show="update.announcement && !updateModal.open" x-transition
+     class="bg-gradient-to-l from-primary to-blue-600 text-white px-4 py-2 text-center text-xs">
+  <div class="max-w-5xl mx-auto flex items-center justify-center gap-2">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4 shrink-0"><path d="M3 11l19-9-9 19-2-8-8-2z"/></svg>
+    <span x-text="update.announcement"></span>
+  </div>
+</div>
+
+<main class="max-w-5xl mx-auto px-4 py-4 pb-28 md:pb-8">
+
+  <section x-show="tab === 'devices'" x-transition.opacity.duration.200ms class="space-y-4">
+    <div class="flex items-center justify-between">
+      <h2 class="font-bold text-lg">الأجهزة المتصلة</h2>
+      <span class="text-xs text-gray-500" x-text="devices.length + ' جهاز'"></span>
+    </div>
+
+    <div x-show="!loading.devices" class="bg-gradient-to-br from-slate-700 to-slate-900 rounded-xl p-4 text-white">
+      <p class="text-xs opacity-70 mb-2">الاستهلاك العام (تراكمي)</p>
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <p class="text-[11px] opacity-70">↓ تحميل</p>
+          <p class="font-bold text-lg" x-text="fmtBytes(traffic.totalRx)"></p>
+        </div>
+        <div>
+          <p class="text-[11px] opacity-70">↑ رفع</p>
+          <p class="font-bold text-lg" x-text="fmtBytes(traffic.totalTx)"></p>
+        </div>
+      </div>
+      <p x-show="traffic.updatedAt" class="text-[10px] opacity-50 mt-2" x-text="'آخر تحديث: ' + fmtTime(traffic.updatedAt)"></p>
+    </div>
+
+    <div x-show="loading.devices" class="space-y-3">
+      <template x-for="i in 3" :key="i">
+        <div class="bg-white dark:bg-gray-800 rounded-xl p-4 space-y-3"><div class="flex gap-3"><div class="skeleton w-10 h-10 rounded-full"></div><div class="flex-1 space-y-2"><div class="skeleton h-4 w-1/2 rounded"></div><div class="skeleton h-3 w-1/3 rounded"></div></div></div></div>
+      </template>
+    </div>
+
+    <div x-show="!loading.devices && devices.length === 0" class="bg-white dark:bg-gray-800 rounded-xl p-8 text-center">
+      <div class="w-16 h-16 mx-auto rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center mb-3"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-7 h-7 text-gray-400"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg></div>
+      <p class="text-gray-500 text-sm">لا توجد أجهزة متصلة حاليًا</p>
+    </div>
+
+    <div class="bg-white dark:bg-gray-800 rounded-xl p-1 flex gap-1">
+      <button @click="deviceTab = 'active'"
+              class="flex-1 py-2 rounded-lg text-sm font-medium transition flex items-center justify-center gap-2"
+              :class="deviceTab === 'active' ? 'bg-primary text-white' : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4"><path d="M5 12.55a11 11 0 0114.08 0"/><path d="M1.42 9a16 16 0 0121.16 0"/><path d="M8.53 16.11a6 6 0 016.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></svg>
+        <span>نشط</span>
+        <span class="text-[10px] px-1.5 py-0.5 rounded-full bg-black/10 dark:bg-white/10" x-text="activeCount()"></span>
+      </button>
+      <button @click="deviceTab = 'inactive'"
+              class="flex-1 py-2 rounded-lg text-sm font-medium transition flex items-center justify-center gap-2"
+              :class="deviceTab === 'inactive' ? 'bg-gray-600 text-white' : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
+        <span>غير نشط</span>
+        <span class="text-[10px] px-1.5 py-0.5 rounded-full bg-black/10 dark:bg-white/10" x-text="inactiveCount()"></span>
+      </button>
+    </div>
+
+    <div x-show="!loading.devices" class="space-y-3">
+      <template x-for="d in filteredDevices()" :key="d.mac">
+        <div class="rounded-xl p-4 animate-slide-up border-2"
+             :class="d.blocked ? 'bg-red-50 dark:bg-red-950/20 border-red-300 dark:border-red-800' : 'bg-white dark:bg-gray-800 border-transparent'">
+          <div class="flex items-start gap-3">
+            <div class="w-10 h-10 rounded-full flex items-center justify-center shrink-0"
+                 :class="d.blocked ? 'bg-red-100 dark:bg-red-950/50 text-red-600 dark:text-red-400' : (d.online ? 'bg-green-100 dark:bg-green-950/50 text-green-600 dark:text-green-400' : 'bg-gray-100 dark:bg-gray-700 text-gray-400')">
+              <template x-if="!d.blocked">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-5 h-5"><path d="M5 12.55a11 11 0 0114.08 0"/><path d="M1.42 9a16 16 0 0121.16 0"/><path d="M8.53 16.11a6 6 0 016.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></svg>
+              </template>
+              <template x-if="d.blocked">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-5 h-5"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
+              </template>
+            </div>
+            <div class="flex-1 min-w-0">
+              <div class="flex items-center gap-2 mb-1 flex-wrap">
+                <span x-show="getVendor(d.mac).icon !== '❓'" x-text="getVendor(d.mac).icon" class="text-base"></span>
+                <span class="font-semibold text-sm truncate" x-text="d.name || d.ip || 'جهاز'"></span>
+                <span x-show="getVendor(d.mac).vendor && !getVendor(d.mac).unknown" class="text-[9px] px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400" x-text="getVendor(d.mac).vendorAr || getVendor(d.mac).vendor"></span>
+                <span x-show="d.name" class="text-[10px] text-gray-400 font-mono" x-text="d.ip || ''"></span>
+                <template x-if="d.blocked && d.unblockAt">
+                  <span class="text-[10px] px-2 py-0.5 rounded-full font-medium bg-red-100 dark:bg-red-950/50 text-red-700 dark:text-red-400"
+                        x-text="'محظور • ' + countdownText(d.unblockAt)"></span>
+                </template>
+                <template x-if="d.blocked && !d.unblockAt">
+                  <span class="text-[10px] px-2 py-0.5 rounded-full font-medium bg-red-100 dark:bg-red-950/50 text-red-700 dark:text-red-400">محظور</span>
+                </template>
+                <template x-if="!d.blocked">
+                  <span class="text-[10px] px-2 py-0.5 rounded-full font-medium" :class="d.online ? 'bg-green-100 dark:bg-green-950/50 text-green-700 dark:text-green-400' : 'bg-gray-100 dark:bg-gray-700 text-gray-500'" x-text="d.online ? 'متصل' : 'غير نشط'"></span>
+                </template>
+                <template x-if="d.dailyLimitBytes > 0">
+                  <span class="text-[10px] px-2 py-0.5 rounded-full font-medium bg-amber-100 dark:bg-amber-950/50 text-amber-700 dark:text-amber-400"
+                        x-text="'حد: ' + fmtBytes(d.dailyLimitBytes)"></span>
+                </template>
+              </div>
+              <p class="text-xs text-gray-500 font-mono truncate" x-text="d.mac"></p>
+              <div class="flex flex-wrap gap-3 mt-2 text-xs text-gray-600 dark:text-gray-400">
+                <span>Σ↓ <span x-text="fmtBytes(d.totalRx)"></span></span>
+                <span>Σ↑ <span x-text="fmtBytes(d.totalTx)"></span></span>
+              </div>
+            </div>
+            <div class="flex flex-col gap-1 shrink-0">
+              <button @click="askDetails(d)" title="تفاصيل" class="w-8 h-8 rounded-lg hover:bg-emerald-50 dark:hover:bg-emerald-950/40 flex items-center justify-center text-gray-400 hover:text-emerald-600">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+              </button>
+              <button @click="askRename(d)" title="إعادة تسمية" class="w-8 h-8 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-950/40 flex items-center justify-center text-gray-400 hover:text-blue-600">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+              </button>
+              <button x-show="!d.online" @click="askDeleteKnown(d)" title="حذف السجل" class="w-8 h-8 rounded-lg hover:bg-red-50 dark:hover:bg-red-950/40 flex items-center justify-center text-gray-400 hover:text-red-600">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
+              </button>
+              <button @click="askBlock(d)" :title="d.blocked ? 'إدارة الحظر' : 'حظر أو حد يومي'"
+                      class="w-8 h-8 rounded-lg flex items-center justify-center"
+                      :class="d.blocked ? 'bg-red-500 text-white hover:bg-red-600' : 'hover:bg-red-50 dark:hover:bg-red-950/40 text-gray-400 hover:text-red-600'">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
+              </button>
+            </div>
+          </div>
+        </div>
+      </template>
+    </div>
+  </section>
+
+  <section x-show="tab === 'filter'" x-transition.opacity.duration.200ms class="space-y-4" x-cloak>
+    <div class="flex items-center justify-between">
+      <h2 class="font-bold text-lg">فلترة MAC</h2>
+      <span class="text-xs text-gray-500" x-text="filter.macs.length + ' عنوان'"></span>
+    </div>
+    <div class="bg-white dark:bg-gray-800 rounded-xl p-4">
+      <label class="text-xs font-medium text-gray-500 block mb-2">وضع الفلترة</label>
+      <div class="grid grid-cols-5 gap-1.5">
+        <template x-for="m in [{id:'disabled',label:'معطّل'},{id:'allow',label:'سماح فقط'},{id:'deny',label:'حظر'}]" :key="m.id">
+          <button @click="changeFilterMode(m.id)" :disabled="loading.filter" class="py-2.5 rounded-lg text-sm font-medium transition border-2 disabled:opacity-60" :class="filter.mode === m.id ? (m.id === 'deny' ? 'bg-red-500 border-red-500 text-white' : m.id === 'allow' ? 'bg-green-500 border-green-500 text-white' : 'bg-gray-600 border-gray-600 text-white') : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:border-gray-300'" x-text="m.label"></button>
+        </template>
+      </div>
+      <p class="text-[11px] text-gray-400 mt-2">
+        <span x-show="filter.mode === 'disabled'">الفلترة معطّلة — كل الأجهزة مسموح لها.</span>
+        <span x-show="filter.mode === 'allow'">فقط الأجهزة في القائمة مسموح لها بالاتصال.</span>
+        <span x-show="filter.mode === 'deny'">الأجهزة في القائمة محظورة من الاتصال.</span>
+      </p>
+    </div>
+
+      <div class="bg-white dark:bg-gray-800 rounded-xl p-4 space-y-3">
+      <label class="text-xs font-medium text-gray-500 block">إضافة عنوان MAC</label>
+      <div class="flex gap-2">
+        <input type="text" x-model="newMac" @keydown.enter="addMac()" placeholder="aa:bb:cc:dd:ee:ff" dir="ltr" class="flex-1 px-3 py-2.5 rounded-lg bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none text-sm font-mono" />
+        <button @click="addMac()" :disabled="loading.filter || !newMac" class="px-4 py-2.5 rounded-lg bg-primary hover:bg-primary-dark text-white text-sm font-medium disabled:opacity-50 flex items-center gap-1.5">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>إضافة
+        </button>
+      </div>
+    </div>
+    <div x-show="loading.filter" class="bg-white dark:bg-gray-800 rounded-xl p-4 space-y-2">
+      <template x-for="i in 3" :key="i"><div class="skeleton h-10 rounded-lg"></div></template>
+    </div>
+    <div class="bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 rounded-xl p-4 space-y-3">
+      <div class="flex items-start gap-2">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-5 h-5 text-red-600 shrink-0 mt-0.5"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+        <div class="flex-1">
+          <p class="text-sm font-bold text-red-700 dark:text-red-400">زر الطوارئ</p>
+          <p class="text-xs text-red-600 dark:text-red-400 mt-1">إذا فقدت الاتصال بالراوتر (بسبب حظر MAC)، اضغط هذا الزر لرفع كل الحظر.</p>
+        </div>
+      </div>
+      <button @click="emergencyReset()" :disabled="emergencyResetting"
+              class="w-full py-2.5 rounded-lg bg-red-600 hover:bg-red-700 text-white text-sm font-bold disabled:opacity-60 flex items-center justify-center gap-2">
+        <svg x-show="!emergencyResetting" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4">
+          <path d="M3 12a9 9 0 1018 0 9 9 0 00-18 0z"/>
+          <line x1="12" y1="8" x2="12" y2="12"/>
+          <line x1="12" y1="16" x2="12.01" y2="16"/>
+        </svg>
+        <svg x-show="emergencyResetting" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4 animate-spin">
+          <path d="M21 12a9 9 0 11-6.22-8.56"/>
+        </svg>
+        <span x-text="emergencyResetting ? 'جاري التنظيف…' : '🚨 إلغاء كل الحظر الآن'"></span>
+      </button>
+    </div>
+
+    <div x-show="!loading.filter" class="bg-white dark:bg-gray-800 rounded-xl overflow-hidden">
+      <div x-show="filter.macs.length === 0" class="p-8 text-center text-sm text-gray-500">لا توجد عناوين MAC في القائمة</div>
+      <template x-for="m in filter.macs" :key="m">
+        <div class="flex items-center gap-3 px-4 py-3 border-b border-gray-100 dark:border-gray-700 last:border-0">
+          <code class="flex-1 text-sm font-mono truncate" dir="ltr" x-text="m"></code>
+          <button @click="removeMac(m)" :disabled="loading.filter" class="w-8 h-8 rounded-lg hover:bg-red-50 dark:hover:bg-red-950/40 flex items-center justify-center text-gray-400 hover:text-red-600 disabled:opacity-50">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
+          </button>
+        </div>
+      </template>
+    </div>
+  </section>
+
+  <section x-show="tab === 'wifi'" x-transition.opacity.duration.200ms class="space-y-4" x-cloak>
+    <h2 class="font-bold text-lg">إعدادات الواي فاي</h2>
+    <div x-show="loading.wifi" class="bg-white dark:bg-gray-800 rounded-xl p-4 space-y-3">
+      <div class="skeleton h-4 w-1/3 rounded"></div><div class="skeleton h-10 rounded-lg"></div><div class="skeleton h-4 w-1/3 rounded"></div><div class="skeleton h-10 rounded-lg"></div>
+    </div>
+    <div x-show="!loading.wifi" class="bg-gradient-to-br from-primary to-blue-700 rounded-xl p-5 text-white">
+      <p class="text-xs opacity-80 mb-1">الشبكة الحالية</p>
+      <p class="text-xl font-bold truncate" x-text="wifi.ssid || '—'"></p>
+      <div class="flex items-center gap-2 mt-3"><span class="text-[11px] px-2 py-0.5 rounded-full bg-white/20" x-text="'التشفير: ' + (wifi.encryption || '—')"></span></div>
+    </div>
+    <div x-show="!loading.wifi" class="bg-white dark:bg-gray-800 rounded-xl p-4 space-y-3">
+      <label class="text-xs font-medium text-gray-500 block">اسم الشبكة (SSID)</label>
+      <div class="flex gap-2">
+        <input type="text" x-model="forms.ssid" class="flex-1 px-3 py-2.5 rounded-lg bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none text-sm" />
+        <button @click="saveSsid()" :disabled="loading.wifiSave || forms.ssid === wifi.ssid || !forms.ssid" class="px-4 py-2.5 rounded-lg bg-primary hover:bg-primary-dark text-white text-sm font-medium disabled:opacity-50">حفظ</button>
+      </div>
+    </div>
+    <div x-show="!loading.wifi" class="bg-white dark:bg-gray-800 rounded-xl p-4 space-y-3">
+      <label class="text-xs font-medium text-gray-500 block">نوع التشفير</label>
+      <select x-model="forms.encryption" class="w-full px-3 py-2.5 rounded-lg bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 focus:border-primary outline-none text-sm">
+        <template x-for="e in wifi.supported" :key="e"><option :value="e" x-text="e"></option></template>
+      </select>
+      <button @click="askEncryptionChange()" :disabled="loading.wifiSave || forms.encryption === wifi.encryption" class="w-full py-2.5 rounded-lg bg-warning hover:bg-yellow-700 text-white text-sm font-medium disabled:opacity-50">⚠️ تغيير التشفير (سيقطع الاتصال)</button>
+    </div>
+    <div x-show="!loading.wifi" class="bg-white dark:bg-gray-800 rounded-xl p-4 space-y-3">
+      <label class="text-xs font-medium text-gray-500 block">كلمة المرور الجديدة</label>
+      <div class="relative">
+        <input :type="showPass ? 'text' : 'password'" x-model="forms.password" placeholder="8 - 63 حرف" class="w-full px-3 py-2.5 rounded-lg bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none text-sm pl-10" dir="ltr" />
+        <button type="button" @click="showPass = !showPass" class="absolute left-2 top-1/2 -translate-y-1/2 p-1 text-gray-400">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+        </button>
+      </div>
+      <button @click="askPasswordChange()" :disabled="loading.wifiSave || forms.password.length < 8 || forms.password.length > 63" class="w-full py-2.5 rounded-lg bg-danger hover:bg-red-700 text-white text-sm font-medium disabled:opacity-50">🔒 تغيير كلمة المرور (سيقطع الاتصال)</button>
+    </div>
+    <!-- بطاقة الحماية الكاملة (تشفير + كلمة مرور) -->
+    <div x-show="!loading.wifi" class="bg-white dark:bg-gray-800 rounded-xl p-4 space-y-3 mt-4">
+    <div x-show="!loading.wifi" class="bg-white dark:bg-gray-800 rounded-xl p-4 space-y-3">
+        <div class="flex items-center justify-between">
+          <h3 class="font-bold text-sm">📡 قوة بث الواي فاي</h3>
+          <span class="text-[10px] px-2 py-0.5 rounded-full font-medium bg-blue-100 dark:bg-blue-950/50 text-blue-700 dark:text-blue-400"
+                x-text="txPowerLabel(wifi.txpower)"></span>
+        </div>
+
+        <p class="text-[11px] text-gray-500 leading-relaxed">
+          كل ما قللت القوة، قلّ مدى البث ووفّرت الطاقة. مفيد لتحديد انتشار الشبكة داخل منزلك فقط.
+        </p>
+
+        <div class="grid grid-cols-5 gap-1.5">
+          <template x-for="lvl in TX_POWER_LEVELS" :key="lvl.v">
+            <button @click="changeTxPower(lvl.v)"
+                    :disabled="savingTxPower"
+                    class="py-2.5 rounded-lg text-xs font-bold border-2 transition disabled:opacity-50"
+                    :class="wifi.txpower === lvl.v
+                      ? 'bg-primary border-primary text-white shadow-md'
+                      : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:border-gray-300'">
+              <span x-text="lvl.n"></span>
+            </button>
+          </template>
+        </div>
+
+        <div class="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg p-2.5 text-[11px] text-amber-800 dark:text-amber-300 leading-relaxed">
+          ⚠️ <b>ملاحظة:</b> 10% منخفض جداً — قد يقطع الاتصال بالأجهزة البعيدة.
+        </div>
+      </div>
+
+      <h3 class="font-bold text-sm">🔒 حماية الشبكة (تشفير + كلمة مرور)</h3>
+
+      <div>
+        <label class="text-xs font-medium text-gray-500 block mb-1.5">نوع الحماية</label>
+        <select x-model="wifiSec.encryption" class="w-full px-3 py-2.5 rounded-lg bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 focus:border-primary outline-none text-sm">
+          <option value="WPA2-AES">🟢 WPA2-AES (موصى به — متوافق مع كل الأجهزة)</option>
+          <option value="WPA3">🆕 WPA3 (أحدث — قد لا يدعمه كل جهاز)</option>
+          <option value="None">⚠️ بدون تشفير (خطر)</option>
+        </select>
+      </div>
+
+      <div class="flex items-center gap-2 py-1">
+        <input type="checkbox" id="adv-toggle" x-model="wifiSec.advanced" class="w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary" />
+        <label for="adv-toggle" class="text-xs text-gray-600 dark:text-gray-400 cursor-pointer">عرض الخيارات المتقدمة</label>
+      </div>
+
+      <div x-show="wifiSec.advanced" x-transition class="space-y-2">
+        <label class="text-xs font-medium text-gray-500 block">أنواع قديمة (لأجهزة قديمة فقط)</label>
+        <select x-model="wifiSec.encryption" class="w-full px-3 py-2.5 rounded-lg bg-gray-50 dark:bg-gray-900 border border-amber-300 dark:border-amber-700 focus:border-amber-500 outline-none text-sm">
+          <option value="WPA-TKIP">WPA-TKIP (قديم)</option>
+          <option value="WPA-AES">WPA-AES (قديم)</option>
+          <option value="WPA2-TKIP">WPA2-TKIP</option>
+          <option value="WPA2-Mixed">WPA2-Mixed (متوافق مع الأقدم)</option>
+          <option value="WPA3-Mixed">WPA3-Mixed</option>
+          <option value="WEP">WEP (غير آمن — تجنبه)</option>
+        </select>
+        <p class="text-[10px] text-amber-700 dark:text-amber-400">⚠️ الأنواع القديمة أبطأ وأقل أماناً.</p>
+      </div>
+
+      <div>
+        <label class="text-xs font-medium text-gray-500 block mb-1.5">كلمة المرور الجديدة (8-63 حرف)</label>
+        <div class="relative">
+          <input :type="wifiSec.showPass ? 'text' : 'password'" x-model="wifiSec.password" placeholder="كلمة مرور قوية" class="w-full px-3 py-2.5 pl-10 rounded-lg bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 focus:border-primary outline-none text-sm font-mono" dir="ltr" />
+          <button type="button" @click="wifiSec.showPass = !wifiSec.showPass" class="absolute left-2 top-1/2 -translate-y-1/2 p-1 text-gray-400">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+          </button>
+        </div>
+        <button type="button" @click="suggestPassword()" class="mt-1 text-[11px] text-primary underline">🎲 اقتراح كلمة مرور قوية</button>
+      </div>
+
+      <div class="bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 rounded-lg p-2.5 text-[11px] text-red-700 dark:text-red-400 leading-relaxed">
+        ⚠️ <b>تنبيه:</b> عند الحفظ سينقطع اتصالك بالواي فاي فوراً. ستحتاج إدخال كلمة المرور الجديدة على كل أجهزتك.
+      </div>
+
+      <button @click="saveSecurity()" :disabled="wifiSec.saving || wifiSec.password.length < 8"
+              class="w-full py-2.5 rounded-lg bg-primary hover:bg-primary-dark text-white text-sm font-bold disabled:opacity-50">
+        <span x-text="wifiSec.saving ? 'جاري الحفظ…' : '🔒 حفظ وحماية الشبكة'"></span>
+      </button>
+    </div>
+
+  </section>
+
+  <section x-show="tab === 'speed'" x-transition.opacity.duration.200ms class="space-y-4" x-cloak>
+    <h2 class="font-bold text-lg">قياس سرعة الإنترنت</h2>
+
+    <div class="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 rounded-2xl p-5 text-white shadow-xl">
+      <div class="flex justify-center gap-2 mb-3">
+        <button @click="speed.mode = 'download'"
+                :class="speed.mode === 'download' ? 'bg-primary text-white shadow-lg' : 'bg-white/10 text-white/60'"
+                class="px-4 py-1.5 rounded-full text-xs font-medium transition">التحميل</button>
+        <button @click="speed.mode = 'upload'"
+                :class="speed.mode === 'upload' ? 'bg-emerald-500 text-white shadow-lg' : 'bg-white/10 text-white/60'"
+                class="px-4 py-1.5 rounded-full text-xs font-medium transition">الرفع</button>
+      </div>
+
+      <div class="relative w-full max-w-[340px] mx-auto">
+        <svg viewBox="0 0 200 200" class="w-full block">
+          <path d="M 20 100 A 80 80 0 0 1 180 100"
+                fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="12" stroke-linecap="round"/>
+          <path d="M 20 100 A 80 80 0 0 1 180 100"
+                fill="none" :stroke="gaugeColor()" stroke-width="12" stroke-linecap="round"
+                stroke-dasharray="251.33" :stroke-dashoffset="gaugeOffset()"
+                style="transition: stroke-dashoffset 0.8s cubic-bezier(0.4,0,0.2,1), stroke 0.3s; filter: drop-shadow(0 0 8px currentColor);"/>
+          <line x1="20" y1="100" x2="20" y2="92" stroke="rgba(255,255,255,0.4)" stroke-width="1.5" stroke-linecap="round"/>
+          <line x1="100" y1="20" x2="100" y2="28" stroke="rgba(255,255,255,0.4)" stroke-width="1.5" stroke-linecap="round"/>
+          <line x1="180" y1="100" x2="180" y2="92" stroke="rgba(255,255,255,0.4)" stroke-width="1.5" stroke-linecap="round"/>
+          <line x1="60" y1="30" x2="63" y2="37" stroke="rgba(255,255,255,0.2)" stroke-width="1"/>
+          <line x1="140" y1="30" x2="137" y2="37" stroke="rgba(255,255,255,0.2)" stroke-width="1"/>
+          <line x1="30" y1="65" x2="38" y2="68" stroke="rgba(255,255,255,0.2)" stroke-width="1"/>
+          <line x1="170" y1="65" x2="162" y2="68" stroke="rgba(255,255,255,0.2)" stroke-width="1"/>
+          <g :style="'transform-box: view-box; transform-origin: 100px 100px; transform: rotate(' + needleAngle() + 'deg); transition: transform 0.8s cubic-bezier(0.4,0,0.2,1);'">
+            <line x1="100" y1="100" x2="100" y2="40" stroke="white" stroke-width="2.5" stroke-linecap="round"/>
+            <line x1="100" y1="100" x2="100" y2="40" stroke="white" stroke-width="1" stroke-linecap="round" opacity="0.5"/>
+          </g>
+          <circle cx="100" cy="100" r="7" fill="#0f172a" stroke="white" stroke-width="2"/>
+          <circle cx="100" cy="100" r="3" fill="white"/>
+        </svg>
+
+        <div class="absolute inset-x-0 bottom-2 text-center pointer-events-none">
+          <div class="text-[10px] uppercase tracking-widest opacity-50 mb-0.5"
+               x-text="speed.mode === 'download' ? 'DOWNLOAD' : 'UPLOAD'"></div>
+          <div class="text-5xl font-black tabular-nums leading-none tracking-tight"
+               x-text="gaugeValue().toFixed(2)"></div>
+          <div class="text-[11px] opacity-50 mt-0.5">Mbps</div>
+        </div>
+      </div>
+
+      <div class="text-center mt-3 pt-3 border-t border-white/10">
+        <span class="text-xs text-white/60">
+          ≈ <span class="font-bold text-white tabular-nums" x-text="gaugeKbps()"></span> KB/s
+        </span>
+        <p x-show="speed.result" class="text-[10px] text-white/30 mt-1"
+           x-text="'آخر اختبار: ' + fmtDate(speed.result?.testedAt)"></p>
+      </div>
+    </div>
+
+    <div class="bg-white dark:bg-gray-800 rounded-xl p-4 space-y-3">
+      <label class="text-xs font-medium text-gray-500 block">حجم الاختبار (MB)</label>
+      <div class="grid grid-cols-5 gap-1.5">
+        <template x-for="s in [1, 2, 3, 5, 10]" :key="s">
+          <button @click="speed.size = s" :disabled="speed.testing"
+                  class="py-2 rounded-lg text-sm font-medium border-2 transition disabled:opacity-50"
+                  :class="speed.size === s ? 'bg-primary border-primary text-white' : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400'"
+                  x-text="s"></button>
+        </template>
+      </div>
+      <button @click="runSpeedTest()" :disabled="speed.testing"
+              class="w-full py-3 rounded-lg bg-primary hover:bg-primary-dark text-white font-medium disabled:opacity-60 flex items-center justify-center gap-2">
+        <svg x-show="!speed.testing" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+        <svg x-show="speed.testing" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4 animate-spin"><path d="M21 12a9 9 0 11-6.22-8.56"/></svg>
+        <span x-text="speed.testing ? 'جاري القياس…' : 'بدء القياس'"></span>
+      </button>
+      <p x-show="speed.testing" class="text-xs text-gray-500 text-center">قياس سريع — 3-10 ثواني تقريبًا</p>
+    </div>
+
+    <div class="bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-xl p-3 text-xs text-blue-800 dark:text-blue-300 space-y-1">
+      <p class="font-bold">الفروق بين الوحدات:</p>
+      <p><b>Mbps</b> = ميغا<b>بت</b>/ثانية — الوحدة الرسمية لسرعة الإنترنت عند الشركات.</p>
+      <p><b>KB/s</b> = كيلو<b>بايت</b>/ثانية — السرعة الفعلية اللي تشوفها بالتنزيل.</p>
+      <p class="text-[11px] opacity-80 pt-1">1 MB/s ≈ 8 Mbps ≈ 1000 KB/s</p>
+      <p class="text-[11px] pt-1">مثال: 3 Mbps = 375 KB/s تقريبًا.</p>
+    </div>
+  </section>
+
+  <section x-show="tab === 'wan'" x-transition.opacity.duration.200ms class="space-y-4" x-cloak>
+    <div class="flex items-center justify-between">
+      <h2 class="font-bold text-lg">حالة الاتصال</h2>
+      <span x-show="wan"
+            class="text-xs px-2 py-1 rounded-full font-medium"
+            :class="wan?.connected ? 'bg-green-100 dark:bg-green-950/50 text-green-700 dark:text-green-400' : 'bg-red-100 dark:bg-red-950/50 text-red-700 dark:text-red-400'"
+            x-text="wan?.connected ? 'متصل' : 'غير متصل'"></span>
+    </div>
+
+    <div x-show="loading.wan" class="bg-white dark:bg-gray-800 rounded-xl p-4 space-y-3">
+      <div class="skeleton h-4 w-1/3 rounded"></div>
+      <div class="skeleton h-4 w-2/3 rounded"></div>
+      <div class="skeleton h-4 w-1/2 rounded"></div>
+    </div>
+
+    <template x-if="!loading.wan && wan">
+      <div class="space-y-4">
+        <div class="rounded-xl p-4 text-white"
+             :class="wan.connected ? 'bg-gradient-to-br from-emerald-500 to-teal-600' : 'bg-gradient-to-br from-red-500 to-rose-600'">
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center shrink-0">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-5 h-5">
+                <circle cx="12" cy="12" r="10"/>
+                <line x1="2" y1="12" x2="22" y2="12"/>
+                <path d="M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"/>
+              </svg>
+            </div>
+            <div class="flex-1">
+              <p class="text-xs opacity-90">حالة الإنترنت</p>
+              <p class="text-lg font-bold" x-text="wan.connected ? 'متصل بالإنترنت' : 'غير متصل'"></p>
+            </div>
+          </div>
+        </div>
+
+        <div x-show="wan.entry" class="bg-white dark:bg-gray-800 rounded-xl divide-y divide-gray-100 dark:divide-gray-700">
+          <div class="flex items-center justify-between px-4 py-3">
+            <span class="text-sm text-gray-500">نوع الاتصال</span>
+            <span class="text-sm font-medium" x-text="wan.entry?.mode || '—'"></span>
+          </div>
+          <div class="flex items-center justify-between px-4 py-3">
+            <span class="text-sm text-gray-500">VPI / VCI</span>
+            <span class="text-sm font-medium font-mono" dir="ltr" x-text="(wan.entry?.vpi ?? '—') + ' / ' + (wan.entry?.vci ?? '—')"></span>
+          </div>
+          <div class="flex items-center justify-between px-4 py-3">
+            <span class="text-sm text-gray-500">Encapsulation</span>
+            <span class="text-sm font-medium" x-text="wan.entry?.encap || '—'"></span>
+          </div>
+          <div class="flex items-center justify-between px-4 py-3">
+            <span class="text-sm text-gray-500">NAPT / IGMP</span>
+            <span class="text-sm font-medium" x-text="(wan.entry?.napt || '—') + ' / ' + (wan.entry?.igmp || '—')"></span>
+          </div>
+        </div>
+
+        <div x-show="wan.entry" class="bg-white dark:bg-gray-800 rounded-xl divide-y divide-gray-100 dark:divide-gray-700">
+          <div class="flex items-center justify-between px-4 py-3">
+            <span class="text-sm text-gray-500">IP المكتسب</span>
+            <span class="text-sm font-medium font-mono" dir="ltr" x-text="wan.entry?.ip || '—'"></span>
+          </div>
+          <div class="flex items-center justify-between px-4 py-3">
+            <span class="text-sm text-gray-500">IP المزود</span>
+            <span class="text-sm font-medium font-mono" dir="ltr" x-text="wan.entry?.remoteIp || '—'"></span>
+          </div>
+          <div class="flex items-center justify-between px-4 py-3">
+            <span class="text-sm text-gray-500">Netmask</span>
+            <span class="text-sm font-medium font-mono" dir="ltr" x-text="wan.entry?.netmask || '—'"></span>
+          </div>
+        </div>
+
+        <div x-show="wan.entry" class="bg-white dark:bg-gray-800 rounded-xl divide-y divide-gray-100 dark:divide-gray-700">
+          <div class="flex items-center justify-between px-4 py-3">
+            <span class="text-sm text-gray-500">اسم المستخدم</span>
+            <span class="text-sm font-medium font-mono truncate max-w-[60%]" dir="ltr" x-text="wan.entry?.username || '—'"></span>
+          </div>
+          <div class="flex items-center justify-between px-4 py-3">
+            <span class="text-sm text-gray-500">كلمة المرور</span>
+            <span class="text-sm font-medium text-gray-400 tracking-widest">••••••••</span>
+          </div>
+        </div>
+
+        <div x-show="pppoe.loaded && pppoe.entry" class="bg-white dark:bg-gray-800 rounded-xl p-4 space-y-3">
+          <div class="flex items-center justify-between">
+            <h3 class="font-bold text-sm">بيانات PPPoE</h3>
+            <span class="text-[10px] px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-950/50 text-blue-700 dark:text-blue-400">الاتصال بالمزود</span>
+          </div>
+
+          <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-3 space-y-2 text-xs">
+            <div class="flex items-center justify-between">
+              <span class="text-gray-500">نوع الاتصال</span>
+              <span class="font-mono" x-text="pppoe.entry?.mode || '—'"></span>
+            </div>
+            <div class="flex items-center justify-between">
+              <span class="text-gray-500">VPI / VCI</span>
+              <span class="font-mono" dir="ltr" x-text="(pppoe.entry?.vpi ?? '—') + ' / ' + (pppoe.entry?.vci ?? '—')"></span>
+            </div>
+            <div class="flex items-center justify-between">
+              <span class="text-gray-500">Encapsulation</span>
+              <span class="font-mono" x-text="pppoe.entry?.encap || '—'"></span>
+            </div>
+          </div>
+
+          <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-3 space-y-2 text-xs">
+            <div class="flex items-center justify-between gap-2">
+              <span class="text-gray-500 shrink-0">اسم المستخدم</span>
+              <span class="font-mono truncate" dir="ltr" x-text="pppoe.entry?.username || '—'"></span>
+            </div>
+            <div class="flex items-center justify-between gap-2">
+              <span class="text-gray-500 shrink-0">كلمة المرور</span>
+              <span class="font-mono text-amber-600 dark:text-amber-400 truncate" dir="ltr" x-text="pppoe.entry?.password || '—'"></span>
+            </div>
+          </div>
+
+          <button @click="openPppoeModal()" class="w-full py-2.5 rounded-lg bg-primary hover:bg-primary-dark text-white text-sm font-medium flex items-center justify-center gap-2">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+            تعديل بيانات الاتصال
+          </button>
+
+          <p class="text-[10px] text-gray-400 leading-relaxed">
+            ⚠️ تعديل هذه البيانات يقطع الإنترنت مؤقتًا. إذا لم يعمل بعد التعديل، سيعرض التطبيق خطوات الإنقاذ.
+          </p>
+        </div>
+      </div>
+    </template>
+  </section>
+
+  <section x-show="tab === 'time'" x-transition.opacity.duration.200ms class="space-y-4" x-cloak>
+    <h2 class="font-bold text-lg">التاريخ والوقت</h2>
+
+    <div x-show="!time.loaded" class="bg-white dark:bg-gray-800 rounded-xl p-4 space-y-3">
+      <div class="skeleton h-4 w-1/3 rounded"></div>
+      <div class="skeleton h-10 rounded-lg"></div>
+    </div>
+
+    <template x-if="time.loaded">
+      <div class="space-y-4">
+
+        <div class="bg-gradient-to-br from-primary to-blue-700 rounded-xl p-4 text-white">
+          <p class="text-xs opacity-80 mb-1">وقت الراوتر الحالي</p>
+          <p class="text-xl font-bold tabular-nums" dir="ltr" x-text="formatRouterTime()"></p>
+          <p x-show="time.gmtTime" class="text-[11px] opacity-70 mt-1" dir="ltr" x-text="'GMT: ' + time.gmtTime"></p>
+
+          <div class="flex gap-2 mt-3">
+            <button @click="toggleManualEdit()" class="flex-1 py-2 rounded-lg bg-white/20 hover:bg-white/30 text-xs font-medium">
+              <span x-text="time.editMode ? 'إلغاء' : 'تعديل يدوي'"></span>
+            </button>
+            <button @click="syncNtp()" :disabled="time.syncing" class="flex-1 py-2 rounded-lg bg-white/20 hover:bg-white/30 text-xs font-medium disabled:opacity-50">
+              <span x-text="time.syncing ? 'جاري المزامنة…' : 'مزامنة NTP'"></span>
+            </button>
+          </div>
+        </div>
+
+        <div x-show="time.editMode" class="bg-white dark:bg-gray-800 rounded-xl p-4 space-y-3">
+          <p class="text-sm font-bold">تعديل التاريخ والوقت</p>
+          <div class="grid grid-cols-3 gap-2">
+            <div>
+              <label class="text-[10px] text-gray-500 block mb-1">السنة</label>
+              <input type="number" x-model.number="time.edit.year" min="2000" max="2099" class="w-full px-2 py-2 rounded-lg bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-sm text-center font-mono" />
+            </div>
+            <div>
+              <label class="text-[10px] text-gray-500 block mb-1">الشهر</label>
+              <input type="number" x-model.number="time.edit.month" min="1" max="12" class="w-full px-2 py-2 rounded-lg bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-sm text-center font-mono" />
+            </div>
+            <div>
+              <label class="text-[10px] text-gray-500 block mb-1">اليوم</label>
+              <input type="number" x-model.number="time.edit.day" min="1" max="31" class="w-full px-2 py-2 rounded-lg bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-sm text-center font-mono" />
+            </div>
+            <div>
+              <label class="text-[10px] text-gray-500 block mb-1">ساعة</label>
+              <input type="number" x-model.number="time.edit.hour" min="0" max="23" class="w-full px-2 py-2 rounded-lg bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-sm text-center font-mono" />
+            </div>
+            <div>
+              <label class="text-[10px] text-gray-500 block mb-1">دقيقة</label>
+              <input type="number" x-model.number="time.edit.min" min="0" max="59" class="w-full px-2 py-2 rounded-lg bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-sm text-center font-mono" />
+            </div>
+            <div>
+              <label class="text-[10px] text-gray-500 block mb-1">ثانية</label>
+              <input type="number" x-model.number="time.edit.sec" min="0" max="59" class="w-full px-2 py-2 rounded-lg bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-sm text-center font-mono" />
+            </div>
+          </div>
+          <button @click="saveManualTime()" :disabled="time.saving" class="w-full py-2.5 rounded-lg bg-primary text-white text-sm font-medium disabled:opacity-50">
+            <span x-text="time.saving ? 'جاري الحفظ…' : 'حفظ الوقت'"></span>
+          </button>
+        </div>
+
+        <div class="bg-white dark:bg-gray-800 rounded-xl p-4 space-y-3">
+          <div class="flex items-center justify-between">
+            <h3 class="font-bold text-sm">مزامنة تلقائية (NTP)</h3>
+            <button @click="time.ntp.enabled = !time.ntp.enabled"
+                    class="relative w-12 h-6 rounded-full transition"
+                    :class="time.ntp.enabled ? 'bg-primary' : 'bg-gray-300 dark:bg-gray-600'">
+              <span class="absolute top-0.5 w-5 h-5 rounded-full bg-white transition-all"
+                    :class="time.ntp.enabled ? 'left-0.5' : 'right-0.5'"></span>
+            </button>
+          </div>
+
+          <div class="space-y-2">
+            <div>
+              <label class="text-[10px] text-gray-500 block mb-1">السيرفر 1</label>
+              <input type="text" x-model="time.ntp.server1" dir="ltr" :disabled="!time.ntp.enabled" class="w-full px-2 py-2 rounded-lg bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-xs font-mono disabled:opacity-50" />
+            </div>
+            <div>
+              <label class="text-[10px] text-gray-500 block mb-1">السيرفر 2</label>
+              <input type="text" x-model="time.ntp.server2" dir="ltr" :disabled="!time.ntp.enabled" class="w-full px-2 py-2 rounded-lg bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-xs font-mono disabled:opacity-50" />
+            </div>
+            <div>
+              <label class="text-[10px] text-gray-500 block mb-1">المزامنة كل (ساعات)</label>
+              <input type="number" x-model.number="time.ntp.interval" min="1" max="999" :disabled="!time.ntp.enabled" class="w-full px-2 py-2 rounded-lg bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-sm font-mono disabled:opacity-50" />
+            </div>
+          </div>
+
+          <button @click="saveNtp()" :disabled="time.ntpSaving" class="w-full py-2.5 rounded-lg bg-primary text-white text-sm font-medium disabled:opacity-50">
+            <span x-text="time.ntpSaving ? 'جاري الحفظ…' : 'حفظ NTP'"></span>
+          </button>
+        </div>
+
+        <div class="bg-white dark:bg-gray-800 rounded-xl p-4 space-y-3">
+          <h3 class="font-bold text-sm">المنطقة الزمنية</h3>
+
+          <button @click="loadTimezones()" x-show="!timezones.loaded" class="w-full py-2 rounded-lg bg-gray-100 dark:bg-gray-700 text-xs font-medium">
+            تحميل القائمة (101 منطقة)
+          </button>
+
+          <template x-if="timezones.loaded">
+            <div>
+              <select x-model.number="time.tzSelected" class="w-full px-2 py-2.5 rounded-lg bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-xs">
+                <template x-for="tz in timezones.items" :key="tz.code">
+                  <option :value="tz.offsetMin" x-text="tz.country + ' — ' + tz.offset"></option>
+                </template>
+              </select>
+
+              <div x-show="time.tzSelected" class="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg p-2.5 mt-2 text-[11px] text-amber-800 dark:text-amber-300">
+                <p>ملاحظة: بعض الدول (سوريا، الأردن، لبنان) تستخدم الآن GMT+3 بينما الراوتر يعرض GMT+2. اختر "Baghdad/Kuwait/Riyadh" (GMT+3) إذا أردت التوقيت الصحيح.</p>
+              </div>
+
+              <button @click="saveTimezone()" :disabled="time.ntpSaving" class="w-full py-2.5 mt-3 rounded-lg bg-primary text-white text-sm font-medium disabled:opacity-50">
+                <span x-text="time.ntpSaving ? 'جاري الحفظ…' : 'حفظ المنطقة'"></span>
+              </button>
+            </div>
+          </template>
+        </div>
+
+      </div>
+    </template>
+  </section>
+
+  <section x-show="tab === 'security'" x-transition.opacity.duration.200ms class="space-y-4" x-cloak>
+    <h2 class="font-bold text-lg">🛡️ فحص الأمان</h2>
+
+    <!-- بطاقة النقاط -->
+    <div class="rounded-2xl p-6 text-white text-center"
+         :style="'background: linear-gradient(135deg, ' + securityScoreColor(security.score) + ' 0%, ' + securityScoreColor(security.score) + 'cc 100%)'">
+      <p class="text-xs opacity-80 mb-2">تقييم أمان الراوتر</p>
+      <div class="flex items-baseline justify-center gap-1">
+        <span class="text-6xl font-black tabular-nums leading-none" x-text="security.score !== null ? security.score : '—'"></span>
+        <span class="text-2xl font-bold opacity-70" x-show="security.score !== null">%</span>
+      </div>
+      <p class="text-sm mt-2 opacity-90" x-text="securityScoreLabel(security.score)"></p>
+
+      <!-- تفصيل سريع -->
+      <div x-show="security.summary" class="grid grid-cols-4 gap-2 mt-4 text-[10px]">
+        <div class="bg-white/20 rounded-lg py-1.5">
+          <div class="font-bold text-base" x-text="security.summary?.critical || 0"></div>
+          <div>حرج</div>
+        </div>
+        <div class="bg-white/20 rounded-lg py-1.5">
+          <div class="font-bold text-base" x-text="security.summary?.high || 0"></div>
+          <div>خطر</div>
+        </div>
+        <div class="bg-white/20 rounded-lg py-1.5">
+          <div class="font-bold text-base" x-text="security.summary?.medium || 0"></div>
+          <div>تحذير</div>
+        </div>
+        <div class="bg-white/20 rounded-lg py-1.5">
+          <div class="font-bold text-base" x-text="security.summary?.ok || 0"></div>
+          <div>آمن</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- زر الفحص -->
+    <button @click="runSecurityScan()" :disabled="security.scanning"
+            class="w-full py-3 rounded-xl bg-primary hover:bg-primary-dark text-white font-medium disabled:opacity-60 flex items-center justify-center gap-2">
+      <svg x-show="!security.scanning" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-5 h-5">
+        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+      </svg>
+      <svg x-show="security.scanning" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-5 h-5 animate-spin">
+        <path d="M21 12a9 9 0 11-6.22-8.56"/>
+      </svg>
+      <span x-text="security.scanning ? 'جاري الفحص… (30 ثانية)' : (security.scanned ? 'إعادة الفحص' : 'بدء الفحص الأمني')"></span>
+    </button>
+
+    <!-- زر إصلاح الكل -->
+    <button x-show="security.scanned && !security.scanning && getFixableIssues().length > 0"
+            @click="fixAllIssues()"
+            :disabled="security.fixingAll"
+            class="w-full py-3 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white font-bold disabled:opacity-60 flex items-center justify-center gap-2 shadow-lg">
+      <svg x-show="!security.fixingAll" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-5 h-5"><path d="M9 12l2 2 4-4"/><circle cx="12" cy="12" r="10"/></svg>
+      <svg x-show="security.fixingAll" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-5 h-5 animate-spin"><path d="M21 12a9 9 0 11-6.22-8.56"/></svg>
+      <span x-text="security.fixingAll ? 'جاري الإصلاح…' : ('🛡️ إصلاح كل المشاكل (' + getFixableIssues().length + ')')"></span>
+    </button>
+
+    <!-- Skeleton أثناء الفحص -->
+    <div x-show="security.scanning" class="space-y-3">
+      <template x-for="i in 5" :key="i">
+        <div class="bg-white dark:bg-gray-800 rounded-xl p-4 space-y-2">
+          <div class="skeleton h-4 w-1/3 rounded"></div>
+          <div class="skeleton h-3 w-2/3 rounded"></div>
+        </div>
+      </template>
+    </div>
+
+    <!-- لم يُفحص بعد -->
+    <div x-show="!security.scanned && !security.scanning" class="bg-white dark:bg-gray-800 rounded-xl p-8 text-center">
+      <div class="w-16 h-16 mx-auto mb-3 rounded-full bg-blue-100 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400 flex items-center justify-center">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-8 h-8">
+          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+        </svg>
+      </div>
+      <p class="text-sm text-gray-500 mb-1">لم يتم الفحص بعد</p>
+      <p class="text-xs text-gray-400">اضغط الزر أعلاه لبدء الفحص</p>
+    </div>
+
+    <!-- النتائج -->
+    <div x-show="security.scanned && !security.scanning" class="space-y-3">
+      <template x-for="(item, i) in security.results" :key="i">
+        <div class="rounded-xl p-4 border-2 space-y-2" :class="sevBg(item.severity)">
+          <div class="flex items-start gap-3">
+            <span class="text-2xl shrink-0" x-text="sevIcon(item.severity)"></span>
+            <div class="flex-1 min-w-0">
+              <p class="font-bold text-sm" :style="'color: ' + sevColor(item.severity)" x-text="item.title"></p>
+              <p class="text-xs text-gray-600 dark:text-gray-400 mt-1 whitespace-pre-line leading-relaxed" x-text="item.description"></p>
+
+              <!-- زر الإصلاح -->
+              <button x-show="item.fixable && item.fixAction && item.fixAction.url"
+                      @click="applySecurityFix(item)"
+                      class="mt-3 px-4 py-2 rounded-lg text-white text-xs font-bold flex items-center gap-2"
+                      :style="'background: ' + sevColor(item.severity)">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-3.5 h-3.5">
+                  <path d="M9 12l2 2 4-4"/>
+                  <circle cx="12" cy="12" r="10"/>
+                </svg>
+                <span x-text="item.fixLabel || 'إصلاح تلقائي'"></span>
+              </button>
+
+              <!-- زر الانتقال (للواي فاي مثلاً) -->
+              <button x-show="item.fixable && item.fixAction && item.fixAction.navigate"
+                      @click="tab = item.fixAction.navigate"
+                      class="mt-3 px-4 py-2 rounded-lg text-white text-xs font-bold"
+                      :style="'background: ' + sevColor(item.severity)"
+                      x-text="item.fixLabel || 'انتقل'"></button>
+            </div>
+          </div>
+        </div>
+      </template>
+    </div>
+
+    <!-- ملاحظات -->
+    <div x-show="security.scanned" class="bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-xl p-3 text-[11px] text-blue-800 dark:text-blue-300 leading-relaxed">
+      ℹ️ هذا الفحص يكتشف الإعدادات الخطرة الشائعة (WPS، UPnP، TR-069، تشفير ضعيف). لا يمكنه اكتشاف فيروسات داخل الراوتر — للحماية القصوى، حدّث الـ firmware دورياً.
+    </div>
+  </section>
+
+  <section x-show="tab === 'settings'" x-transition.opacity.duration.200ms class="space-y-4" x-cloak>
+    <h2 class="font-bold text-lg">إعدادات</h2>
+    <div class="bg-white dark:bg-gray-800 rounded-xl divide-y divide-gray-100 dark:divide-gray-700">
+      <div class="flex items-center justify-between px-4 py-3"><span class="text-sm text-gray-500">موديل الراوتر</span><span class="text-sm font-medium">TP-Link TD-W8961N</span></div>
+      <div class="flex items-center justify-between px-4 py-3"><span class="text-sm text-gray-500">حالة الاتصال</span><span class="text-sm font-medium" :class="online ? 'text-green-600' : 'text-red-600'" x-text="online ? 'متصل' : 'غير متصل'"></span></div>
+      <div class="flex items-center justify-between px-4 py-3"><span class="text-sm text-gray-500">آخر تحديث</span><span class="text-sm font-medium" x-text="lastUpdate ? fmtTime(lastUpdate) : '—'"></span></div>
+    </div>
+      <div class="bg-white dark:bg-gray-800 rounded-xl p-4 space-y-3">
+        <div class="flex items-center justify-between">
+          <h3 class="font-bold text-sm">MAC جهازي (للحماية)</h3>
+          <span class="text-[10px] px-2 py-0.5 rounded-full font-medium"
+                :class="backendMac ? 'bg-green-100 dark:bg-green-950/50 text-green-700 dark:text-green-400' : 'bg-amber-100 dark:bg-amber-950/50 text-amber-700 dark:text-amber-400'"
+                x-text="backendMac ? 'محمي' : 'غير محدد'"></span>
+        </div>
+
+        <p class="text-[11px] text-gray-500 leading-relaxed">
+          أدخل MAC جهازك الحالي لحماية نفسك من الحظر الذاتي عند تفعيل فلترة MAC.
+        </p>
+
+        <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-3 space-y-2 text-xs">
+          <div class="flex items-center justify-between">
+            <span class="text-gray-500">MAC الحالي</span>
+            <span class="font-mono truncate max-w-[60%] text-left" dir="ltr"
+                  :class="backendMac ? 'text-green-600 dark:text-green-400' : 'text-gray-400'"
+                  x-text="backendMac || '—'"></span>
+          </div>
+          <div x-show="autoDetectedMac && autoDetectedMac !== backendMac" class="flex items-center justify-between">
+            <span class="text-gray-500">المكتشف</span>
+            <span class="font-mono truncate max-w-[60%] text-left text-amber-600 dark:text-amber-400" dir="ltr"
+                  x-text="autoDetectedMac || '—'"></span>
+          </div>
+        </div>
+
+        <div class="flex gap-2">
+          <input type="text" id="backendMacField" x-model="backendMacInput"
+                 placeholder="30:56:96:8e:1b:71"
+                 dir="ltr" maxlength="17"
+                 class="flex-1 px-3 py-2.5 rounded-lg bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 focus:border-primary outline-none text-sm font-mono" />
+          <button @click="saveBackendMac()"
+                  :disabled="savingBackendMac"
+                  class="px-4 py-2.5 rounded-lg bg-primary hover:bg-primary-dark text-white text-sm font-medium disabled:opacity-50">
+            <span x-text="savingBackendMac ? '…' : 'حفظ'"></span>
+          </button>
+        </div>
+
+        <button x-show="autoDetectedMac && autoDetectedMac !== backendMac"
+                @click="backendMacInput = autoDetectedMac; saveBackendMac()"
+                class="w-full py-2 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-medium">
+          ✓ استخدام MAC المكتشف تلقائياً
+        </button>
+      </div>
+
+      <div class="bg-white dark:bg-gray-800 rounded-xl p-4 space-y-3">
+        <div class="flex items-center justify-between">
+          <h3 class="font-bold text-sm">بيانات دخول الراوتر</h3>
+          <span class="text-[10px] px-2 py-0.5 rounded-full font-medium"
+                :class="credentials.source === 'file' ? 'bg-green-100 dark:bg-green-950/50 text-green-700 dark:text-green-400' : 'bg-gray-100 dark:bg-gray-700 text-gray-500'"
+                x-text="credentials.source === 'file' ? 'مشفّر' : 'من .env'"></span>
+        </div>
+
+        <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-3 space-y-2 text-xs">
+          <div class="flex items-center justify-between">
+            <span class="text-gray-500">المضيف</span>
+            <span class="font-mono" dir="ltr" x-text="credentials.host || '—'"></span>
+          </div>
+          <div class="flex items-center justify-between">
+            <span class="text-gray-500">اسم المستخدم</span>
+            <span class="font-mono" dir="ltr" x-text="credentials.username || '—'"></span>
+          </div>
+          <div class="flex items-center justify-between">
+            <span class="text-gray-500">كلمة المرور</span>
+            <span class="font-mono text-gray-400 tracking-widest" x-text="credentials.password || '—'"></span>
+          </div>
+        </div>
+
+        <button @click="openCredModal()" class="w-full py-2.5 rounded-lg bg-gray-100 dark:bg-gray-700 text-sm font-medium hover:bg-gray-200 dark:hover:bg-gray-600">
+          تعديل البيانات
+        </button>
+      </div>
+
+      <div class="bg-white dark:bg-gray-800 rounded-xl p-4 space-y-3">
+        <div class="flex items-center justify-between">
+          <h3 class="font-bold text-sm">إصدار التطبيق</h3>
+          <span class="text-[10px] px-2 py-0.5 rounded-full font-medium"
+                :class="update.updateAvailable ? 'bg-amber-100 dark:bg-amber-950/50 text-amber-700 dark:text-amber-400' : 'bg-green-100 dark:bg-green-950/50 text-green-700 dark:text-green-400'"
+                x-text="update.updateAvailable ? 'متوفر تحديث' : 'محدّث'"></span>
+        </div>
+
+        <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-3 space-y-2 text-xs">
+          <div class="flex items-center justify-between">
+            <span class="text-gray-500">إصدارك</span>
+            <span class="font-mono font-medium" x-text="update.current || '—'"></span>
+          </div>
+          <div class="flex items-center justify-between">
+            <span class="text-gray-500">أحدث إصدار</span>
+            <span class="font-mono font-medium" x-text="update.latest || '—'"></span>
+          </div>
+          <div class="flex items-center justify-between" x-show="update.checkedAt">
+            <span class="text-gray-500">آخر فحص</span>
+            <span class="text-gray-500" x-text="fmtTime(update.checkedAt)"></span>
+          </div>
+        </div>
+
+        <button @click="checkUpdate(true)" class="w-full py-2.5 rounded-lg bg-gray-100 dark:bg-gray-700 text-sm font-medium hover:bg-gray-200 dark:hover:bg-gray-600">
+          🔄 تحقق من التحديثات
+        </button>
+      </div>
+
+    <div class="bg-white dark:bg-gray-800 rounded-xl p-4 space-y-3">
+      <div class="flex items-center justify-between">
+        <h3 class="font-bold text-sm">معايرة الاستهلاك</h3>
+        <span class="text-[10px] px-2 py-0.5 rounded-full font-medium"
+              :class="calibration.source === 'calibrated' ? 'bg-green-100 dark:bg-green-950/50 text-green-700 dark:text-green-400' : 'bg-gray-100 dark:bg-gray-700 text-gray-500'"
+              x-text="calibration.source === 'calibrated' ? 'معاير' : 'افتراضي'"></span>
+      </div>
+
+      <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-3 space-y-1">
+        <div class="flex items-baseline gap-2">
+          <span class="text-2xl font-bold tabular-nums" x-text="calibration.packetSize"></span>
+          <span class="text-xs text-gray-500">bytes / حزمة</span>
+        </div>
+        <p class="text-[10px] text-gray-400">
+          الراوتر يعرض عدد الحزم، هذا المعامل يحوّلها إلى بايتات.
+          <span x-show="calibration.samples > 0" x-text="' عدد القياسات: ' + calibration.samples"></span>
+        </p>
+      </div>
+
+      <button @click="runCalibration()" :disabled="calibration.calibrating"
+              class="w-full py-2.5 rounded-lg bg-primary hover:bg-primary-dark text-white text-sm font-medium disabled:opacity-60 flex items-center justify-center gap-2">
+        <svg x-show="!calibration.calibrating" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4">
+          <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
+        </svg>
+        <svg x-show="calibration.calibrating" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4 animate-spin">
+          <path d="M21 12a9 9 0 11-6.22-8.56"/>
+        </svg>
+        <span x-text="calibration.calibrating ? 'جاري المعايرة…' : 'معايرة الآن (2 MB)'"></span>
+      </button>
+
+      <div class="grid grid-cols-2 gap-2">
+        <button @click="promptManualCalibration()"
+                class="py-2 rounded-lg bg-gray-100 dark:bg-gray-700 text-xs font-medium hover:bg-gray-200 dark:hover:bg-gray-600">
+          إدخال يدوي
+        </button>
+        <button @click="resetCalibration()"
+                class="py-2 rounded-lg bg-gray-100 dark:bg-gray-700 text-xs font-medium hover:bg-gray-200 dark:hover:bg-gray-600">
+          إعادة افتراضي (800)
+        </button>
+      </div>
+    </div>
+
+    <button @click="askReboot()" :disabled="rebooting" class="w-full bg-white dark:bg-gray-800 rounded-xl p-4 flex items-center gap-3 hover:bg-red-50 dark:hover:bg-red-950/30 transition text-right disabled:opacity-60">
+      <div class="w-10 h-10 rounded-lg bg-red-100 dark:bg-red-950/50 text-red-600 flex items-center justify-center shrink-0">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-5 h-5"><path d="M18.36 6.64A9 9 0 1120.49 15"/><polyline points="23 4 23 10 17 10"/></svg>
+      </div>
+      <div class="flex-1">
+        <p class="font-medium text-sm" x-text="rebooting ? 'جاري إعادة التشغيل…' : 'إعادة تشغيل الراوتر'"></p>
+        <p class="text-xs text-gray-500" x-text="rebooting ? ('الرجاء الانتظار ' + rebootCountdown + ' ثانية') : 'يفصل الاتصال لمدة ~60 ثانية'"></p>
+      </div>
+    </button>
+    <div class="bg-white dark:bg-gray-800 rounded-xl overflow-hidden">
+      <div class="flex items-center justify-between px-4 py-3 border-b border-gray-100 dark:border-gray-700">
+        <p class="font-medium text-sm">سجل العمليات</p>
+        <button @click="clearHistory()" x-show="history.length" class="text-xs text-red-600">مسح</button>
+      </div>
+      <div x-show="history.length === 0" class="p-6 text-center text-sm text-gray-500">لا توجد عمليات بعد</div>
+      <div class="max-h-72 overflow-y-auto">
+        <template x-for="(h, i) in history" :key="i">
+          <div class="flex items-center gap-3 px-4 py-2.5 border-b border-gray-100 dark:border-gray-700 last:border-0">
+            <span class="w-1.5 h-1.5 rounded-full shrink-0" :class="h.type === 'error' ? 'bg-red-500' : h.type === 'warn' ? 'bg-yellow-500' : 'bg-green-500'"></span>
+            <div class="flex-1 min-w-0"><p class="text-xs truncate" x-text="h.msg"></p></div>
+            <span class="text-[10px] text-gray-400 shrink-0" x-text="fmtTime(h.at)"></span>
+          </div>
+        </template>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<nav class="md:hidden fixed bottom-0 inset-x-0 z-30 bg-white/95 dark:bg-gray-900/95 backdrop-blur border-t border-gray-200 dark:border-gray-800" style="padding-bottom: env(safe-area-inset-bottom)">
+  <div class="flex justify-around">
+    <template x-for="t in tabs" :key="t.id">
+      <button @click="tab = t.id" class="flex-1 flex flex-col items-center gap-1 py-2.5 transition" :class="tab === t.id ? 'text-primary' : 'text-gray-400'">
+        <span x-html="t.icon" class="w-5 h-5"></span><span class="text-[10px] font-medium" x-text="t.label"></span>
+      </button>
+    </template>
+  </div>
+</nav>
+
+<div class="fixed top-4 inset-x-4 z-50 flex flex-col items-center gap-2 pointer-events-none">
+  <template x-for="t in toasts" :key="t.id">
+    <div class="pointer-events-auto max-w-md w-full bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 px-4 py-3 flex items-center gap-3 animate-slide-up" x-transition>
+      <span class="w-2 h-2 rounded-full shrink-0" :class="{'bg-green-500': t.type === 'success', 'bg-red-500': t.type === 'error', 'bg-yellow-500': t.type === 'warn', 'bg-blue-500': t.type === 'info'}"></span>
+      <p class="text-sm flex-1" x-text="t.msg"></p>
+      <button @click="dismissToast(t.id)" class="text-gray-400 hover:text-gray-600"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+  </template>
+</div>
+
+<div x-show="modal.open" x-transition.opacity class="fixed inset-0 z-40 flex items-end md:items-center justify-center p-4 bg-black/50" @click.self="closeModal()" @keydown.escape.window="closeModal()" x-cloak>
+  <div class="w-full max-w-md bg-white dark:bg-gray-800 rounded-2xl p-5 animate-slide-up">
+    <div class="w-12 h-12 rounded-full mx-auto mb-3 flex items-center justify-center" :class="modal.danger ? 'bg-red-100 dark:bg-red-950/50 text-red-600' : 'bg-primary/10 text-primary'">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-6 h-6"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+    </div>
+    <h3 class="font-bold text-center mb-2" x-text="modal.title"></h3>
+    <p class="text-sm text-gray-500 text-center mb-5" x-text="modal.message"></p>
+    <div class="flex gap-2">
+      <button @click="closeModal()" class="flex-1 py-2.5 rounded-lg bg-gray-100 dark:bg-gray-700 text-sm font-medium">إلغاء</button>
+      <button @click="confirmModal()" class="flex-1 py-2.5 rounded-lg text-white text-sm font-medium" :class="modal.danger ? 'bg-danger hover:bg-red-700' : 'bg-primary hover:bg-primary-dark'" x-text="modal.confirmText"></button>
+    </div>
+  </div>
+</div>
+
+<div x-show="renameModal.open" x-transition.opacity class="fixed inset-0 z-40 flex items-end md:items-center justify-center p-4 bg-black/50" @click.self="renameModal.open = false" @keydown.escape.window="renameModal.open = false" x-cloak>
+  <div class="w-full max-w-md bg-white dark:bg-gray-800 rounded-2xl p-5 animate-slide-up">
+    <h3 class="font-bold mb-1">إعادة تسمية الجهاز</h3>
+    <p class="text-xs text-gray-500 mb-3 font-mono" dir="ltr" x-text="renameModal.mac"></p>
+    <input type="text" id="rename-input" x-model="renameModal.name" placeholder="اسم الجهاز" maxlength="40" @keyup.enter="saveName()" class="w-full px-3 py-2.5 rounded-lg bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 focus:border-primary outline-none text-sm mb-3" />
+    <div class="flex gap-2">
+      <button @click="renameModal.open = false" class="flex-1 py-2.5 rounded-lg bg-gray-100 dark:bg-gray-700 text-sm font-medium">إلغاء</button>
+      <button @click="saveName()" class="flex-1 py-2.5 rounded-lg bg-primary text-white text-sm font-medium">حفظ</button>
+    </div>
+  </div>
+</div>
+
+<div x-show="usageModal.open" x-transition.opacity class="fixed inset-0 z-40 flex items-end md:items-center justify-center p-4 bg-black/50" @click.self="usageModal.open = false" @keydown.escape.window="usageModal.open = false" x-cloak>
+  <div class="w-full max-w-md bg-white dark:bg-gray-800 rounded-2xl p-5 animate-slide-up max-h-[88vh] overflow-y-auto">
+    <div class="flex items-center justify-between mb-4">
+      <div class="min-w-0">
+        <h3 class="font-bold">تفاصيل الاستهلاك</h3>
+        <p class="text-xs text-gray-500 truncate" x-text="usageModal.name || usageModal.mac"></p>
+      </div>
+      <button @click="usageModal.open = false" class="w-8 h-8 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center justify-center text-gray-400 shrink-0">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+
+    <div x-show="usageModal.loading" class="space-y-3">
+      <div class="skeleton h-24 rounded-lg"></div>
+      <div class="skeleton h-40 rounded-lg"></div>
+    </div>
+
+    <div x-show="!usageModal.loading && usageModal.error" class="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-xl p-3 text-xs text-amber-800 dark:text-amber-300">
+      <span x-text="usageModal.error"></span>
+    </div>
+
+    <template x-if="!usageModal.loading && usageModal.data">
+      <div class="space-y-4">
+        <div class="grid grid-cols-2 gap-2">
+          <div class="bg-gradient-to-br from-primary to-blue-700 rounded-xl p-3 text-white">
+            <p class="text-[10px] opacity-80">اليوم</p>
+            <p class="text-xs mt-1">↓ <span class="font-bold" x-text="fmtBytes(usageModal.data.today.rx)"></span></p>
+            <p class="text-xs">↑ <span class="font-bold" x-text="fmtBytes(usageModal.data.today.tx)"></span></p>
+          </div>
+          <div class="bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl p-3 text-white">
+            <p class="text-[10px] opacity-80">آخر 7 أيام</p>
+            <p class="text-xs mt-1">↓ <span class="font-bold" x-text="fmtBytes(usageModal.data.week.rx)"></span></p>
+            <p class="text-xs">↑ <span class="font-bold" x-text="fmtBytes(usageModal.data.week.tx)"></span></p>
+          </div>
+          <div class="bg-gradient-to-br from-emerald-500 to-teal-600 rounded-xl p-3 text-white">
+            <p class="text-[10px] opacity-80">آخر 30 يوم</p>
+            <p class="text-xs mt-1">↓ <span class="font-bold" x-text="fmtBytes(usageModal.data.month.rx)"></span></p>
+            <p class="text-xs">↑ <span class="font-bold" x-text="fmtBytes(usageModal.data.month.tx)"></span></p>
+          </div>
+          <div class="bg-gradient-to-br from-slate-700 to-slate-900 rounded-xl p-3 text-white">
+            <p class="text-[10px] opacity-80">الإجمالي</p>
+            <p class="text-xs mt-1">↓ <span class="font-bold" x-text="fmtBytes(usageModal.data.total.rx)"></span></p>
+            <p class="text-xs">↑ <span class="font-bold" x-text="fmtBytes(usageModal.data.total.tx)"></span></p>
+          </div>
+        </div>
+
+        <div x-show="chartData().length > 0" class="bg-gray-50 dark:bg-gray-900 rounded-xl p-4">
+          <div class="flex items-center justify-between mb-3">
+            <p class="text-xs font-medium text-gray-500">آخر 7 أيام</p>
+            <div class="flex gap-3 text-[10px]">
+              <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-sm bg-primary"></span> تحميل</span>
+              <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-sm bg-emerald-500"></span> رفع</span>
+            </div>
+          </div>
+          <div class="flex items-end justify-between gap-1 h-32">
+            <template x-for="(bar, i) in chartData()" :key="i">
+              <div class="flex-1 flex flex-col items-center gap-1">
+                <div class="w-full flex items-end justify-center gap-0.5 h-24">
+                  <div class="w-2 bg-primary rounded-t transition-all" :style="'height:' + bar.rxPct + '%'"></div>
+                  <div class="w-2 bg-emerald-500 rounded-t transition-all" :style="'height:' + bar.txPct + '%'"></div>
+                </div>
+                <span class="text-[9px] text-gray-400" x-text="bar.day"></span>
+              </div>
+            </template>
+          </div>
+        </div>
+
+        <p class="text-[10px] text-gray-400 text-center">
+          البيانات تُحدَّث تلقائيًا كل دقيقة
+        </p>
+      </div>
+    </template>
+  </div>
+</div>
+
+<div x-show="blockModal.open" x-transition.opacity class="fixed inset-0 z-40 flex items-end md:items-center justify-center p-4 bg-black/50" @click.self="blockModal.open = false" @keydown.escape.window="blockModal.open = false" x-cloak>
+  <div class="w-full max-w-md bg-white dark:bg-gray-800 rounded-2xl p-5 animate-slide-up max-h-[88vh] overflow-y-auto">
+    <div class="flex items-center justify-between mb-4">
+      <div class="min-w-0">
+        <h3 class="font-bold">إدارة الحظر</h3>
+        <p class="text-xs text-gray-500 truncate" x-text="blockModal.name || blockModal.mac"></p>
+      </div>
+      <button @click="blockModal.open = false" class="w-8 h-8 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center justify-center text-gray-400 shrink-0">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+
+    <div x-show="blockModal.blocked" class="bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 rounded-xl p-3 mb-4">
+      <p class="text-sm font-bold text-red-700 dark:text-red-400 mb-1">الجهاز محظور حاليًا</p>
+      <p class="text-xs text-red-600 dark:text-red-400" x-show="blockModal.unblockAt" x-text="'سيُرفع الحظر تلقائيًا ' + countdownText(blockModal.unblockAt)"></p>
+      <p class="text-xs text-red-600 dark:text-red-400" x-show="!blockModal.unblockAt">حظر دائم حتى الإلغاء اليدوي</p>
+      <button @click="unblockNow()" class="mt-3 w-full py-2 rounded-lg bg-white dark:bg-gray-800 border border-red-300 dark:border-red-700 text-red-700 dark:text-red-400 text-sm font-medium">
+        رفع الحظر الآن
+      </button>
+    </div>
+
+    <div x-show="!blockModal.blocked" class="space-y-4">
+      <div>
+        <label class="text-xs font-medium text-gray-500 block mb-1.5">حظر مؤقت (بالدقائق)</label>
+        <div class="flex gap-2">
+          <input type="number" inputmode="numeric" x-model.number="blockModal.minutes" min="1" max="10080" class="flex-1 px-3 py-2.5 rounded-lg bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 focus:border-primary outline-none text-sm" />
+          <button @click="applyTempBlock()" class="px-4 py-2.5 rounded-lg bg-danger hover:bg-red-700 text-white text-sm font-medium whitespace-nowrap">حظر</button>
+        </div>
+        <div class="grid grid-cols-4 gap-1.5 mt-2">
+          <template x-for="m in [10, 30, 60, 180]" :key="m">
+            <button @click="blockModal.minutes = m; applyTempBlock()" class="py-1.5 rounded-lg bg-gray-100 dark:bg-gray-700 text-[11px] font-medium">
+              <span x-text="m < 60 ? m + ' د' : (m/60) + ' س'"></span>
+            </button>
+          </template>
+        </div>
+      </div>
+
+      <div class="border-t border-gray-100 dark:border-gray-700 pt-4">
+        <label class="text-xs font-medium text-gray-500 block mb-1.5">حد يومي (MB)</label>
+        <div class="flex gap-2">
+          <input type="number" inputmode="numeric" x-model.number="blockModal.limitMb" min="1" class="flex-1 px-3 py-2.5 rounded-lg bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 focus:border-primary outline-none text-sm" />
+          <button @click="applyDailyLimit()" class="px-4 py-2.5 rounded-lg bg-warning hover:bg-yellow-700 text-white text-sm font-medium whitespace-nowrap">حفظ</button>
+        </div>
+        <div class="grid grid-cols-4 gap-1.5 mt-2">
+          <template x-for="mb in [50, 100, 500, 1000]" :key="mb">
+            <button @click="blockModal.limitMb = mb; applyDailyLimit()" class="py-1.5 rounded-lg bg-gray-100 dark:bg-gray-700 text-[11px] font-medium" x-text="mb + ' MB'"></button>
+          </template>
+        </div>
+        <button @click="blockModal.limitMb = 0; applyDailyLimit()" x-show="blockModal.dailyLimitBytes > 0" class="mt-2 text-[11px] text-red-600 underline">
+          إزالة الحد اليومي
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div x-show="credModal.open" x-transition.opacity class="fixed inset-0 z-40 flex items-end md:items-center justify-center p-4 bg-black/50" @click.self="credModal.open = false" @keydown.escape.window="credModal.open = false" x-cloak>
+  <div class="w-full max-w-md bg-white dark:bg-gray-800 rounded-2xl p-5 animate-slide-up max-h-[88vh] overflow-y-auto">
+    <div class="flex items-center justify-between mb-4">
+      <h3 class="font-bold">بيانات دخول الراوتر</h3>
+      <button @click="credModal.open = false" class="w-8 h-8 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center justify-center text-gray-400">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+
+    <div class="space-y-3">
+      <div>
+        <label class="text-xs font-medium text-gray-500 block mb-1.5">عنوان الراوتر</label>
+        <input type="text" x-model="credModal.host" dir="ltr" placeholder="192.168.1.1" class="w-full px-3 py-2.5 rounded-lg bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 focus:border-primary outline-none text-sm font-mono" />
+      </div>
+      <div>
+        <label class="text-xs font-medium text-gray-500 block mb-1.5">اسم المستخدم</label>
+        <input type="text" x-model="credModal.username" dir="ltr" placeholder="admin" class="w-full px-3 py-2.5 rounded-lg bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 focus:border-primary outline-none text-sm font-mono" />
+      </div>
+      <div>
+        <label class="text-xs font-medium text-gray-500 block mb-1.5">كلمة المرور</label>
+        <input type="password" x-model="credModal.password" dir="ltr" placeholder="••••••••" class="w-full px-3 py-2.5 rounded-lg bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 focus:border-primary outline-none text-sm font-mono" />
+      </div>
+    </div>
+
+    <div x-show="credModal.testResult" class="mt-3 p-3 rounded-lg text-xs"
+         :class="credModal.testResult?.ok ? 'bg-green-50 dark:bg-green-950/30 text-green-700 dark:text-green-400' : 'bg-red-50 dark:bg-red-950/30 text-red-700 dark:text-red-400'">
+      <span x-text="(credModal.testResult?.ok ? '✅ ' : '❌ ') + credModal.testResult?.message"></span>
+    </div>
+
+    <div class="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg p-2.5 text-[11px] text-amber-800 dark:text-amber-300 mt-3">
+      🔒 تُحفظ كلمة المرور مشفّرة (AES-256-GCM).
+    </div>
+
+    <div class="flex gap-2 mt-4">
+      <button @click="testCreds()" :disabled="credModal.loading"
+              class="flex-1 py-2.5 rounded-lg bg-gray-100 dark:bg-gray-700 text-sm font-medium disabled:opacity-50">
+        <span x-text="credModal.loading ? '…' : 'اختبار'"></span>
+      </button>
+      <button @click="saveCreds()" :disabled="credModal.loading || !credModal.host || !credModal.username || !credModal.password"
+              class="flex-1 py-2.5 rounded-lg bg-primary hover:bg-primary-dark text-white text-sm font-medium disabled:opacity-50">
+        حفظ
+      </button>
+    </div>
+  </div>
+</div>
+
+<div x-show="updateModal.open" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm" x-cloak>
+  <div class="w-full max-w-md bg-white dark:bg-gray-800 rounded-2xl p-6 animate-slide-up text-center">
+    <div class="w-16 h-16 mx-auto mb-4 rounded-full flex items-center justify-center"
+         :class="update.killSwitch ? 'bg-red-100 dark:bg-red-950/50 text-red-600' : 'bg-amber-100 dark:bg-amber-950/50 text-amber-600'">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-8 h-8">
+        <circle cx="12" cy="12" r="10"/>
+        <line x1="12" y1="8" x2="12" y2="12"/>
+        <line x1="12" y1="16" x2="12.01" y2="16"/>
+      </svg>
+    </div>
+    <h3 class="font-bold text-lg mb-2" x-text="update.killSwitch ? 'تم إيقاف التطبيق مؤقتًا' : 'تحديث إجباري مطلوب'"></h3>
+    <p class="text-sm text-gray-500 mb-4" x-text="update.message || 'يرجى تحديث التطبيق للمتابعة'"></p>
+    <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-3 mb-4 text-xs">
+      <div class="flex justify-between mb-1">
+        <span class="text-gray-500">إصدارك الحالي</span>
+        <span class="font-mono font-medium" x-text="update.current"></span>
+      </div>
+      <div class="flex justify-between">
+        <span class="text-gray-500">الحد الأدنى المطلوب</span>
+        <span class="font-mono font-medium text-red-600" x-text="update.minRequired"></span>
+      </div>
+    </div>
+    <button @click="checkUpdate(true)"
+            class="w-full py-3 rounded-lg bg-primary hover:bg-primary-dark text-white font-medium mb-2">
+      🔄 إعادة التحقق
+    </button>
+    <p class="text-[11px] text-gray-400">للتحديث: افتح Termux ونفّذ git pull</p>
+  </div>
+</div>
+
+<div x-show="pppoeModal.open" x-transition.opacity class="fixed inset-0 z-40 flex items-end md:items-center justify-center p-4 bg-black/70" @click.self="pppoeModal.open = false" @keydown.escape.window="pppoeModal.open = false" x-cloak>
+  <div class="w-full max-w-md bg-white dark:bg-gray-800 rounded-2xl p-5 animate-slide-up max-h-[90vh] overflow-y-auto">
+    <div class="flex items-center justify-between mb-3">
+      <h3 class="font-bold">تعديل بيانات PPPoE</h3>
+      <button @click="pppoeModal.open = false" class="w-8 h-8 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center justify-center text-gray-400">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+
+    <div class="bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 rounded-lg p-3 mb-3">
+      <p class="text-xs font-bold text-red-700 dark:text-red-400 mb-1">⚠️ تحذير خطير</p>
+      <p class="text-[11px] text-red-600 dark:text-red-400 leading-relaxed">
+        بيانات خاطئة = انقطاع الإنترنت. تأكد من:
+        <br/>• اسم المستخدم مع @ كامل
+        <br/>• كلمة المرور صحيحة (من مزود الخدمة)
+      </p>
+    </div>
+
+    <div class="bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-lg p-2.5 mb-3">
+      <p class="text-[11px] text-blue-800 dark:text-blue-300 leading-relaxed">
+        ℹ️ <b>الإعدادات التقنية لسوريا</b> (تُضبط تلقائيًا):<br/>
+        VPI=8 · VCI=35 · Encapsulation=LLC · PPPoE
+      </p>
+    </div>
+
+    <div class="space-y-3">
+      <div>
+        <label class="text-xs font-medium text-gray-500 block mb-1.5">اسم المستخدم (البريد)</label>
+        <input type="text" x-model="pppoeModal.username" dir="ltr" placeholder="user@bitakat.sy" class="w-full px-3 py-2.5 rounded-lg bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 focus:border-primary outline-none text-sm font-mono" />
+      </div>
+      <div>
+        <label class="text-xs font-medium text-gray-500 block mb-1.5">كلمة المرور</label>
+        <input type="text" x-model="pppoeModal.password" dir="ltr" placeholder="••••••••" class="w-full px-3 py-2.5 rounded-lg bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 focus:border-primary outline-none text-sm font-mono" />
+      </div>
+      <div>
+        <label class="text-xs font-medium text-gray-500 block mb-1.5">اكتب <b class="text-red-600">"تأكيد"</b> للمتابعة</label>
+        <input type="text" x-model="pppoeModal.confirmText" placeholder="تأكيد" class="w-full px-3 py-2.5 rounded-lg bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 focus:border-primary outline-none text-sm text-center" />
+      </div>
+    </div>
+
+    <div x-show="pppoeModal.error" class="mt-3 p-3 rounded-lg text-xs bg-red-50 dark:bg-red-950/30 text-red-700 dark:text-red-400">
+      <span x-text="pppoeModal.error"></span>
+    </div>
+
+    <div class="flex gap-2 mt-4">
+      <button @click="pppoeModal.open = false" class="flex-1 py-2.5 rounded-lg bg-gray-100 dark:bg-gray-700 text-sm font-medium">إلغاء</button>
+      <button @click="savePppoe()" :disabled="pppoeModal.saving || pppoeModal.confirmText !== 'تأكيد' || !pppoeModal.username || !pppoeModal.password"
+              class="flex-1 py-2.5 rounded-lg bg-red-600 hover:bg-red-700 text-white text-sm font-bold disabled:opacity-50">
+        <span x-text="pppoeModal.saving ? 'جاري الحفظ…' : 'حفظ وتطبيق'"></span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<div x-show="rescueModal.open" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm" x-cloak>
+  <div class="w-full max-w-md bg-white dark:bg-gray-800 rounded-2xl p-6 animate-slide-up max-h-[90vh] overflow-y-auto">
+    <div class="w-16 h-16 mx-auto mb-4 rounded-full bg-amber-100 dark:bg-amber-950/50 text-amber-600 flex items-center justify-center">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-8 h-8">
+        <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
+        <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+      </svg>
+    </div>
+    <h3 class="font-bold text-lg text-center mb-2">الاتصال لم يرجع</h3>
+    <p class="text-sm text-gray-500 text-center mb-4" x-text="rescueModal.message"></p>
+
+    <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-4 space-y-3 text-xs">
+      <div>
+        <p class="font-bold text-gray-700 dark:text-gray-300 mb-1">1. تحقق من البيانات</p>
+        <p class="text-gray-500">تأكد أن اسم المستخدم يحتوي @ كاملاً (مثل user@bitakat.sy)</p>
+      </div>
+      <div>
+        <p class="font-bold text-gray-700 dark:text-gray-300 mb-1">2. اعد المحاولة</p>
+        <p class="text-gray-500">انتظر 30 ثانية — الراوتر قد يحتاج وقتًا للاتصال</p>
+      </div>
+      <div>
+        <p class="font-bold text-gray-700 dark:text-gray-300 mb-1">3. افتح الراوتر مباشرة</p>
+        <p class="text-gray-500 font-mono" dir="ltr">http://192.168.1.1</p>
+        <p class="text-gray-500">Wireless → MAC Filtering → Disabled</p>
+      </div>
+      <div>
+        <p class="font-bold text-red-600 dark:text-red-400 mb-1">4. الحل الأخير</p>
+        <p class="text-gray-500">اضغط زر Reset خلف الراوتر 10 ثوانٍ. هذا يمسح كل شيء — ستحتاج إعادة الإعداد.</p>
+      </div>
+    </div>
+
+    <button @click="rescueModal.open = false" class="w-full mt-4 py-2.5 rounded-lg bg-primary text-white text-sm font-medium">
+      فهمت
+    </button>
+  </div>
+</div>
+
+<div x-show="confirmModal.open" x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100" x-transition:leave="transition ease-in duration-150" x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0" class="fixed inset-0 z-50 flex items-end md:items-center justify-center p-4 bg-black/70 backdrop-blur-sm" @click.self="closeConfirm()" x-cloak>
+
+  <div x-show="confirmModal.open"
+       x-transition:enter="transition ease-out duration-300"
+       x-transition:enter-start="opacity-0 translate-y-8 md:translate-y-0 md:scale-95"
+       x-transition:enter-end="opacity-100 translate-y-0 md:scale-100"
+       class="w-full max-w-md bg-white dark:bg-gray-800 rounded-3xl overflow-hidden shadow-2xl">
+
+    <!-- رأس متدرج -->
+    <div class="px-6 pt-6 pb-4 text-center"
+         :class="confirmModal.danger ? 'bg-gradient-to-br from-red-50 to-orange-50 dark:from-red-950/30 dark:to-orange-950/30' : 'bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-950/30 dark:to-indigo-950/30'">
+
+      <!-- أيقونة -->
+      <div class="w-16 h-16 mx-auto mb-3 rounded-full flex items-center justify-center shadow-lg"
+           :class="confirmModal.danger
+             ? 'bg-gradient-to-br from-red-500 to-orange-500 text-white'
+             : 'bg-gradient-to-br from-blue-500 to-indigo-500 text-white'">
+        <svg x-show="!confirmModal.loading" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="w-8 h-8">
+          <path x-show="confirmModal.danger" d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
+          <line x-show="confirmModal.danger" x1="12" y1="9" x2="12" y2="13"/>
+          <line x-show="confirmModal.danger" x1="12" y1="17" x2="12.01" y2="17"/>
+          <circle x-show="!confirmModal.danger" cx="12" cy="12" r="10"/>
+          <path x-show="!confirmModal.danger" d="M9.09 9a3 3 0 015.83 1c0 2-3 3-3 3"/>
+          <line x-show="!confirmModal.danger" x1="12" y1="17" x2="12.01" y2="17"/>
+        </svg>
+        <svg x-show="confirmModal.loading" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="w-8 h-8 animate-spin">
+          <path d="M21 12a9 9 0 11-6.22-8.56"/>
+        </svg>
+      </div>
+
+      <h3 class="font-bold text-lg text-gray-900 dark:text-white" x-text="confirmModal.title"></h3>
+      <p class="text-sm text-gray-600 dark:text-gray-400 mt-2 leading-relaxed" x-text="confirmModal.message"></p>
+    </div>
+
+    <!-- التفاصيل -->
+    <div x-show="confirmModal.detail" class="px-6 py-4">
+      <div class="bg-gray-50 dark:bg-gray-900 rounded-2xl p-4 flex gap-3">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-5 h-5 text-gray-400 shrink-0 mt-0.5">
+          <circle cx="12" cy="12" r="10"/>
+          <line x1="12" y1="16" x2="12" y2="12"/>
+          <line x1="12" y1="8" x2="12.01" y2="8"/>
+        </svg>
+        <p class="text-xs text-gray-600 dark:text-gray-400 leading-relaxed" x-text="confirmModal.detail"></p>
+      </div>
+    </div>
+
+    <!-- أزرار -->
+    <div class="px-6 pb-6 pt-2 flex gap-3">
+      <button @click="closeConfirm()"
+              :disabled="confirmModal.loading"
+              class="flex-1 py-3 rounded-2xl bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 font-medium text-sm disabled:opacity-50 transition active:scale-95">
+        إلغاء
+      </button>
+      <button @click="confirmAction()"
+              :disabled="confirmModal.loading"
+              class="flex-1 py-3 rounded-2xl text-white font-bold text-sm disabled:opacity-60 transition active:scale-95 flex items-center justify-center gap-2"
+              :class="confirmModal.danger
+                ? 'bg-gradient-to-br from-red-500 to-orange-500 hover:from-red-600 hover:to-orange-600'
+                : 'bg-gradient-to-br from-blue-500 to-indigo-500 hover:from-blue-600 hover:to-indigo-600'">
+        <svg x-show="confirmModal.loading" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4 animate-spin">
+          <path d="M21 12a9 9 0 11-6.22-8.56"/>
+        </svg>
+        <span x-text="confirmModal.loading ? 'جاري التنفيذ…' : confirmModal.confirmText"></span>
+      </button>
+    </div>
+
+  </div>
+</div>
+
+<script>
+function app() {
+  return {
+    tab: 'devices',
+    dark: localStorage.getItem('dark') === 'true',
+    online: false, lastUpdate: null, showPass: false,
+    devices: [],
+    deviceTab: 'active',
+    security: { scanning: false, scanned: false, results: [], summary: null, score: null, fixingAll: false, fixedAt: null, pendingVerify: false },
+    confirmModal: { open: false, title: '', message: '', detail: '', confirmText: 'تأكيد', danger: false, loading: false, onConfirm: null },
+    traffic: { totalRx: 0, totalTx: 0, updatedAt: 0 },
+    renameModal: { open: false, mac: '', name: '' },
+    usageModal: { open: false, mac: '', name: '', data: null, loading: false, error: null },
+    calibration: { packetSize: 800, samples: 0, source: 'default', loading: false, calibrating: false },
+    credentials: { host: '', username: '', password: '', source: 'env' },
+    update: { current: '', latest: '', minRequired: '', updateAvailable: false, blocked: false, killSwitch: false, forceUpdate: false, message: '', announcement: '', checkedAt: 0, ok: false },
+    wifiSec: { encryption: 'WPA2-AES', password: '', advanced: false, showPass: false, saving: false },
+    savingTxPower: false,
+    TX_POWER_LEVELS: [{v:0,n:'100%'},{v:1,n:'80%'},{v:2,n:'50%'},{v:3,n:'25%'},{v:4,n:'10%'}],
+    time: { date: { year: 0, month: 1, day: 1, hour: 0, min: 0, sec: 0 }, daylightsaving: 0, ntp: { enabled: false, server1: '', server2: '', interval: 1, timezone: null }, gmtTime: '', loaded: false, editMode: false, edit: {}, saving: false, tzSelected: null, tzSaving: false, ntpSaving: false, syncing: false },
+    timezones: { items: [], loaded: false },
+    pppoe: { connected: false, entry: null, loaded: false, loading: false },
+    pppoeModal: { open: false, username: '', password: '', saving: false, error: null, confirmText: '' },
+    rescueModal: { open: false, message: '' },
+    updateModal: { open: false },
+    credModal: { open: false, host: '', username: '', password: '', loading: false, testResult: null },
+    rules: {},
+    blockModal: { open: false, mac: '', name: '', mode: 'temp', minutes: 30, limitMb: 500, blocked: false, unblockAt: null, dailyLimitBytes: 0 },
+    emergencyResetting: false,
+    backendMac: null,
+    wan: null,
+    filter: { mode: 'disabled', macs: [] },
+    wifi: { ssid: '', encryption: '', supported: [] },
+    speed: { testing: false, result: null, size: 1, mode: 'download' },
+    rebooting: false, rebootCountdown: 0,
+    newMac: '',
+    forms: { ssid: '', encryption: '', password: '' },
+    loading: { devices: false, filter: false, wifi: false, wifiSave: false, wan: false },
+    toasts: [],
+    modal: { open: false, title: '', message: '', confirmText: 'تأكيد', danger: false, onConfirm: null },
+    history: [], toastSeq: 0,
+    tabs: [
+      { id: 'devices', label: 'الأجهزة', icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-full h-full"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>' },
+      { id: 'filter', label: 'الفلترة', icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-full h-full"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>' },
+      { id: 'wifi', label: 'الواي فاي', icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-full h-full"><path d="M5 12.55a11 11 0 0114.08 0"/><path d="M1.42 9a16 16 0 0121.16 0"/><path d="M8.53 16.11a6 6 0 016.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></svg>' },
+      { id: 'speed', label: 'السرعة', icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-full h-full"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>' },
+      { id: 'wan', label: 'الاتصال', icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-full h-full"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"/></svg>' },
+      { id: 'time', label: 'الوقت', icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-full h-full"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>' },
+      { id: 'security', label: 'الأمان', icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-full h-full"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>' },
+      { id: 'settings', label: 'إعدادات', icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-full h-full"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 11-4 0v-.09a1.65 1.65 0 00-1-1.51 1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 110-4h.09a1.65 1.65 0 001.51-1 1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06a1.65 1.65 0 001.82.33h.09a1.65 1.65 0 001-1.51V3a2 2 0 114 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82v.09a1.65 1.65 0 001.51 1H21a2 2 0 110 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>' },
+    ],
+    async init() {
+      window.__alpineApp = this;
+      this.applyDark();
+      this.history = JSON.parse(localStorage.getItem('history') || '[]');
+      await this.checkHealth();
+      await this.loadDevices();
+      this.loadFilter();
+      this.loadWifi();
+      this.loadWan();
+      this.loadCalibration();
+      this.loadCredentials();
+      this.loadBackendMac();
+      this.loadTime();
+      this.loadSecurity();
+      this.loadPppoe();
+      this.checkUpdate();
+    },
+    applyDark() { document.documentElement.classList.toggle('dark', this.dark); },
+    toggleDark() { this.dark = !this.dark; localStorage.setItem('dark', this.dark); this.applyDark(); },
+    async api(path, opts = {}) {
+      const res = await fetch(path, { headers: { 'Content-Type': 'application/json' }, ...opts });
+      let data = {}; try { data = await res.json(); } catch {}
+      if (!res.ok) { const err = (data && data.error) || {}; const e = new Error(err.message || ('خطأ ' + res.status)); e.code = err.code; if (e.code === 'INVALID_CREDENTIALS' && !this._credWarned) { this._credWarned = true; setTimeout(() => { this._credWarned = false; }, 60000); this.toast('⚠️ كلمة مرور الأدمن خاطئة — حدّثها من الإعدادات', 'error'); }
+        throw e; }
+      return data;
+    },
+    async checkHealth() {
+      try {
+        await this.api('/api/health');
+        await this.api('/api/router/health');
+        this.online = true;
+      } catch { this.online = false; }
+    },
+    isRefreshing() { return this.loading.devices || this.loading.filter || this.loading.wifi || this.speed.testing; },
+    async refreshCurrent() {
+      await this.checkHealth();
+      if (this.tab === 'devices') await this.loadDevices();
+      else if (this.tab === 'filter') await this.loadFilter();
+      else if (this.tab === 'wifi') await this.loadWifi();
+      else if (this.tab === 'wan') { await this.loadWan(); await this.loadPppoe(); }
+      else if (this.tab === 'time') { await this.loadTime(); await this.loadTimezones(); }
+      else if (this.tab === 'security') { await this.loadSecurity(); }
+    },
+    async loadDevices() {
+      this.loading.devices = true;
+      try { const r = await this.api('/api/devices'); this.devices = r.devices || []; this.traffic = r.traffic || this.traffic; this.lastUpdate = new Date(); }
+      catch (e) { this.toast(e.message, 'error'); } finally { this.loading.devices = false; }
+    },
+    async loadWan() {
+      this.loading.wan = true;
+      try { const r = await this.api('/api/wan'); this.wan = r; this.lastUpdate = new Date(); }
+      catch (e) { this.toast(e.message, 'error'); } finally { this.loading.wan = false; }
+    },
+    async loadFilter() {
+      this.loading.filter = true;
+      try { const r = await this.api('/api/mac-filter'); this.filter.mode = r.mode || 'disabled'; this.filter.macs = r.macs || []; this.backendMac = r.backendMac || null; this.lastUpdate = new Date(); }
+      catch (e) { this.toast(e.message, 'error'); } finally { this.loading.filter = false; }
+    },
+    validMac(mac) { return /^([0-9a-f]{2}:){5}[0-9a-f]{2}$/i.test(mac); },
+    async addMac() {
+      const mac = this.newMac.trim().toLowerCase();
+      if (!this.validMac(mac)) { this.toast('صيغة MAC غير صحيحة', 'error'); return; }
+      if (this.filter.macs.includes(mac)) { this.toast('العنوان موجود مسبقًا', 'warn'); return; }
+      this.loading.filter = true;
+      try {
+        const r = await this.api('/api/mac-filter', { method: 'POST', body: JSON.stringify({ mac }) });
+        this.filter.mode = r.mode || this.filter.mode; this.filter.macs = r.macs || this.filter.macs;
+        this.newMac = ''; this.toast(r.added ? 'تمت الإضافة' : 'موجود مسبقًا', r.added ? 'success' : 'warn');
+        this.log('إضافة MAC: ' + mac, 'ok');
+      } catch (e) { this.toast(e.message, 'error'); } finally { this.loading.filter = false; }
+    },
+    async removeMac(mac) {
+      this.loading.filter = true;
+      try {
+        const r = await this.api('/api/mac-filter/' + encodeURIComponent(mac), { method: 'DELETE' });
+        this.filter.macs = r.macs || this.filter.macs.filter(m => m !== mac);
+        this.toast('تم الحذف', 'success'); this.log('حذف MAC: ' + mac, 'ok');
+      } catch (e) { this.toast(e.message, 'error'); } finally { this.loading.filter = false; }
+    },
+    askBlockMac(mac) {
+      this.openModal({ title: 'حظر الجهاز', message: 'سيتم حظر ' + mac + ' من الاتصال. متابعة؟', confirmText: 'حظر', danger: true, onConfirm: () => this.blockMac(mac) });
+    },
+    async blockMac(mac) {
+      try {
+        if (this.filter.mode !== 'deny') {
+          await this.api('/api/mac-filter/mode', { method: 'PUT', body: JSON.stringify({ mode: 'deny' }) });
+          this.filter.mode = 'deny';
+        }
+        const r = await this.api('/api/mac-filter', { method: 'POST', body: JSON.stringify({ mac }) });
+        this.filter.macs = r.macs || this.filter.macs;
+        this.toast('تم الحظر', 'success'); this.log('حظر MAC: ' + mac, 'ok');
+      } catch (e) { this.toast(e.message, 'error'); }
+    },
+    async changeFilterMode(mode) {
+      if (mode === this.filter.mode) return;
+      this.loading.filter = true;
+      try {
+        const r = await this.api('/api/mac-filter/mode', { method: 'PUT', body: JSON.stringify({ mode }) });
+        this.filter.mode = r.mode || mode; this.toast('تم تغيير الوضع', 'success'); this.log('وضع الفلترة: ' + mode, 'ok');
+      } catch (e) { this.toast(e.message, 'error'); } finally { this.loading.filter = false; }
+    },
+    async loadWifi() {
+      this.loading.wifi = true;
+      try {
+        const r = await this.api('/api/wifi');
+        this.wifi.ssid = r.ssid || ''; this.wifi.encryption = r.encryption || 'None';
+        this.wifi.supported = r.supported || [];
+        this.forms.ssid = r.ssid || ''; this.forms.encryption = r.encryption || 'None';
+        this.lastUpdate = new Date();
+      } catch (e) { this.toast(e.message, 'error'); } finally { this.loading.wifi = false; }
+    },
+    async saveSsid() {
+      const ssid = this.forms.ssid.trim(); if (!ssid) return;
+      this.loading.wifiSave = true;
+      try {
+        await this.api('/api/wifi/ssid', { method: 'PUT', body: JSON.stringify({ ssid }) });
+        this.wifi.ssid = ssid; this.toast('تم تغيير اسم الشبكة', 'success'); this.log('تغيير SSID: ' + ssid, 'ok');
+      } catch (e) { this.toast(e.message, 'error'); } finally { this.loading.wifiSave = false; }
+    },
+    askEncryptionChange() {
+      this.openModal({ title: 'تغيير التشفير', message: '⚠️ سيقطع الاتصال. متابعة؟', confirmText: 'تغيير', danger: true, onConfirm: () => this.saveEncryption() });
+    },
+    async saveEncryption() {
+      const type = this.forms.encryption; this.loading.wifiSave = true;
+      try {
+        await this.api('/api/wifi/encryption', { method: 'PUT', body: JSON.stringify({ type }) });
+        this.wifi.encryption = type; this.toast('تم تغيير التشفير', 'success'); this.log('التشفير: ' + type, 'warn');
+      } catch (e) { this.toast(e.message, 'error'); } finally { this.loading.wifiSave = false; }
+    },
+    askPasswordChange() {
+      if (this.forms.password.length < 8 || this.forms.password.length > 63) { this.toast('8-63 حرف', 'error'); return; }
+      this.openModal({ title: 'تغيير كلمة المرور', message: '⚠️ سيقطع الاتصال. متابعة؟', confirmText: 'تغيير', danger: true, onConfirm: () => this.savePassword() });
+    },
+    async savePassword() {
+      const password = this.forms.password; this.loading.wifiSave = true;
+      try {
+        await this.api('/api/wifi/password', { method: 'PUT', body: JSON.stringify({ password }) });
+        this.forms.password = ''; this.toast('تم تغيير كلمة المرور', 'success'); this.log('تغيير كلمة المرور', 'warn');
+      } catch (e) { this.toast(e.message, 'error'); } finally { this.loading.wifiSave = false; }
+    },
+    async runSpeedTest() {
+      if (this.speed.testing) return;
+      this.speed.testing = true;
+      try {
+        const r = await this.api('/api/speed?size=' + this.speed.size);
+        this.speed.result = r;
+        const d = r.download?.mbps?.toFixed(2) ?? '—';
+        const u = r.upload?.mbps?.toFixed(2) ?? '—';
+        this.toast('تحميل: ' + d + ' / رفع: ' + u + ' Mbps', 'success');
+        this.log('قياس: ↓' + d + ' ↑' + u + ' Mbps', 'ok');
+      } catch (e) { this.toast(e.message, 'error'); } finally { this.speed.testing = false; }
+    },
+    askReboot() {
+      this.openModal({ title: 'إعادة التشغيل', message: '⚠️ يفصل ~60 ثانية. متابعة؟', confirmText: 'إعادة التشغيل', danger: true, onConfirm: () => this.doReboot() });
+    },
+    async doReboot() {
+      this.rebooting = true; this.rebootCountdown = 60;
+      try {
+        await this.api('/api/reboot', { method: 'POST' });
+        this.toast('الراوتر يعيد التشغيل…', 'info'); this.log('إعادة تشغيل', 'warn');
+      } catch (e) { this.toast(e.message, 'error'); this.rebooting = false; this.rebootCountdown = 0; return; }
+      const t = setInterval(() => {
+        this.rebootCountdown--;
+        if (this.rebootCountdown <= 0) {
+          clearInterval(t); this.rebooting = false;
+          this.checkHealth().then(() => {
+            if (this.online) this.toast('الراوتر عاد للعمل', 'success'); else this.toast('لم يستجب بعد، حاول التحديث', 'warn');
+          });
+        }
+      }, 1000);
+    },
+    async loadPppoe() {
+      this.pppoe.loading = true;
+      try {
+        const r = await this.api('/api/wan/pppoe');
+        this.pppoe = { connected: r.connected, entry: r.entry, loaded: true, loading: false };
+      } catch (e) {
+        this.pppoe.loading = false;
+        this.pppoe.loaded = true;
+      }
+    },
+    openPppoeModal() {
+      if (!this.pppoe.entry) {
+        this.toast('لا توجد بيانات PPPoE', 'error');
+        return;
+      }
+      this.pppoeModal = {
+        open: true,
+        username: this.pppoe.entry.username || '',
+        password: this.pppoe.entry.password || '',
+        saving: false,
+        error: null,
+        confirmText: '',
+      };
+    },
+    useSyriaPreset(provider) {
+      const presets = {
+        bitakat: { hint: 'الاسم عادةً: user@bitakat.sy' },
+        syriatel: { hint: 'الاسم عادةً: user@syriatel.com.sy' },
+        mtn: { hint: 'الاسم عادةً: user@mtn.sy' },
+        st: { hint: 'الاسم: اسم المستخدم من Syrian Telecom' },
+        mada: { hint: 'الاسم: user@mada.sy' },
+      };
+      const p = presets[provider] || presets.bitakat;
+      this.toast(p.hint, 'info');
+    },
+    async savePppoe() {
+      const u = this.pppoeModal.username.trim();
+      const pwd = this.pppoeModal.password;
+      if (!u || !pwd) { this.toast('كل الحقول مطلوبة', 'error'); return; }
+      if (this.pppoeModal.confirmText !== 'تأكيد') {
+        this.toast('اكتب كلمة "تأكيد" بالضبط', 'error');
+        return;
+      }
+      this.pppoeModal.saving = true;
+      this.pppoeModal.error = null;
+      try {
+        const r = await this.api('/api/wan/pppoe', {
+          method: 'PUT',
+          body: JSON.stringify({ username: u, password: pwd }),
+        });
+        this.toast('تم الحفظ — جاري اختبار الاتصال…', 'info');
+        this.log('تحديث بيانات PPPoE: ' + u, 'warn');
+        await new Promise(res => setTimeout(res, 5000));
+        await this.loadWan();
+        await this.loadPppoe();
+        if (this.pppoe.connected) {
+          this.toast('✅ الإنترنت يعمل بشكل طبيعي', 'success');
+          this.pppoeModal.open = false;
+        } else {
+          this.pppoeModal.open = false;
+          this.rescueModal = { open: true, message: 'الإنترنت لم يرجع خلال 5 ثواني. الأرجح أن كلمة المرور خاطئة.' };
+        }
+      } catch (e) {
+        this.pppoeModal.error = e.message;
+        this.toast(e.message, 'error');
+      } finally {
+        this.pppoeModal.saving = false;
+      }
+    },
+    openRescue() {
+      this.rescueModal = { open: true, message: 'إذا فقدت الإنترنت، اتبع الخطوات.' };
+    },
+    async loadTime() {
+      try {
+        const r = await this.api('/api/time');
+        this.time.date = r.date || this.time.date;
+        this.time.daylightsaving = r.daylightsaving || 0;
+        this.time.ntp = r.ntp || this.time.ntp;
+        this.time.gmtTime = r.gmtTime || '';
+        this.time.tzSelected = this.time.ntp.timezone;
+        this.time.loaded = true;
+        this.time.edit = { ...r.date };
+      } catch (e) { this.toast(e.message, 'error'); }
+    },
+    async loadTimezones() {
+      if (this.timezones.loaded) return;
+      try {
+        const r = await this.api('/api/time/timezones');
+        this.timezones.items = r.items || [];
+        this.timezones.loaded = true;
+      } catch (e) {}
+    },
+    toggleManualEdit() {
+      this.time.editMode = !this.time.editMode;
+      if (this.time.editMode) this.time.edit = { ...this.time.date };
+    },
+    formatRouterTime() {
+      const d = this.time.date;
+      if (!d || !d.year) return '—';
+      const months = ['يناير','فبراير','مارس','أبريل','مايو','يونيو','يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر'];
+      const pad = (n) => String(n).padStart(2, '0');
+      return pad(d.hour) + ':' + pad(d.min) + ':' + pad(d.sec) + ' — ' + d.day + ' ' + (months[d.month-1] || '') + ' ' + d.year;
+    },
+    formatTzLabel(tz) {
+      return tz.country + ' — ' + tz.offset;
+    },
+    async saveManualTime() {
+      this.time.saving = true;
+      try {
+        const r = await this.api('/api/time/manual', {
+          method: 'PUT',
+          body: JSON.stringify(this.time.edit),
+        });
+        this.time.date = r.date;
+        this.time.editMode = false;
+        this.toast('تم تحديث الوقت', 'success');
+        this.log('تحديث يدوي للوقت', 'ok');
+      } catch (e) { this.toast(e.message, 'error'); }
+      finally { this.time.saving = false; }
+    },
+    resolveOffsetMin(offsetMin) {
+      const n = Number(offsetMin) || 0;
+      return (n >= 0 ? '+' : '') + String(n);
+    },
+    async saveNtp() {
+      this.time.ntpSaving = true;
+      try {
+        const r = await this.api('/api/time/ntp', {
+          method: 'PUT',
+          body: JSON.stringify({
+            enabled: this.time.ntp.enabled,
+            server1: this.time.ntp.server1,
+            server2: this.time.ntp.server2,
+            interval: this.time.ntp.interval,
+            timezone: this.resolveOffsetMin(this.time.tzSelected),
+          }),
+        });
+        this.time.ntp = { ...r, timezone: this.time.tzSelected };
+        this.toast('تم حفظ إعدادات NTP', 'success');
+        this.log('حفظ إعدادات NTP', 'ok');
+      } catch (e) { this.toast(e.message, 'error'); }
+      finally { this.time.ntpSaving = false; }
+    },
+    async saveTimezone() {
+      return this.saveNtp();
+    },
+    async syncNtp() {
+      this.time.syncing = true;
+      try {
+        await this.api('/api/time/ntp/sync', { method: 'POST' });
+        this.toast('جاري المزامنة مع NTP…', 'info');
+        this.log('مزامنة NTP يدوية', 'ok');
+        setTimeout(() => this.loadTime(), 4000);
+      } catch (e) { this.toast(e.message, 'error'); }
+      finally { this.time.syncing = false; }
+    },
+    async checkUpdate(force = false) {
+      try {
+        const url = '/api/update/check' + (force ? '?force=1' : '');
+        const r = await this.api(url);
+        this.update = { ...this.update, ...r };
+        if (r.blocked || r.killSwitch) {
+          this.updateModal.open = true;
+        }
+      } catch (e) {}
+    },
+    async loadBackendMac() {
+      try {
+        const creds = window.appStore.getCredentials() || {};
+        this.backendMac = creds.backendMac || null;
+        this.backendMacInput = this.backendMac || '';
+        // نحاول اكتشاف MAC الحالي تلقائياً
+        this.detectCurrentMac();
+      } catch (e) {}
+    },
+    async detectCurrentMac() {
+      // نبحث عن جهازنا في قائمة الأجهزة المتصلة:
+      // - الأحدث lastSeen
+      // - أو الذي في traffic.json
+      try {
+        const r = await this.api('/api/devices');
+        const online = (r.devices || []).filter(d => d.online);
+        if (online.length === 0) return;
+        // اختر الأحدث في lastSeen (من traffic)
+        // أبسط: خذ أول جهاز إذا واحد فقط، أو الأول في القائمة
+        // لكن الأفضل: نتحقق من عنوان IP - جهازنا عادة لديه traffic
+        // الحل: استخدم الجهاز الذي في trafficData بـ lastSeen الأحدث
+        const traffic = window.appStore.getTraffic() || {};
+        let best = null;
+        let bestSeen = 0;
+        for (const d of online) {
+          const m = (d.mac || '').toLowerCase();
+          const t = traffic[m];
+          if (t && t.lastSeen && t.lastSeen > bestSeen) {
+            bestSeen = t.lastSeen;
+            best = d.mac;
+          }
+        }
+        // إذا واحد فقط متصل → هو جهازنا
+        if (!best && online.length === 1) best = online[0].mac;
+        if (!best) best = online[0].mac; // fallback
+        this.autoDetectedMac = best;
+      } catch (e) {
+        console.log('[detectCurrentMac] err:', e.message);
+      }
+    },
+    async saveBackendMac() {
+      const input = String(this.backendMacInput || '').trim().toLowerCase();
+      // نتحقق من الصيغة
+      const clean = input.replace(/[^0-9a-f]/g, '');
+      let formatted = '';
+      if (clean.length === 12) {
+        formatted = clean.match(/.{2}/g).join(':');
+      } else if (input === '') {
+        formatted = '';
+      } else {
+        this.toast('صيغة MAC غير صحيحة (مثال: 30:56:96:8e:1b:71)', 'error');
+        return;
+      }
+      this.savingBackendMac = true;
+      try {
+        const creds = window.appStore.getCredentials() || {};
+        creds.backendMac = formatted || null;
+        window.appStore.setCredentials(creds);
+        this.backendMac = formatted || null;
+        if (formatted) {
+          this.toast('✅ تم حفظ MAC جهازك', 'success');
+          this.log('حفظ MAC: ' + formatted, 'ok');
+        } else {
+          this.toast('تم مسح MAC جهازك', 'warn');
+        }
+      } catch (e) {
+        this.toast('فشل الحفظ: ' + e.message, 'error');
+      } finally {
+        this.savingBackendMac = false;
+      }
+    },
+    async loadCredentials() {
+      try {
+        const r = await this.api('/api/settings/credentials');
+        this.credentials = r;
+      } catch (e) {}
+    },
+    openCredModal() {
+      this.credModal = {
+        open: true,
+        host: this.credentials.host || '',
+        username: this.credentials.username || '',
+        password: '',
+        loading: false,
+        testResult: null,
+      };
+    },
+    async testCreds() {
+      const { host, username, password } = this.credModal;
+      if (!host || !username || !password) { this.toast('كل الحقول مطلوبة', 'error'); return; }
+      this.credModal.loading = true;
+      this.credModal.testResult = null;
+      try {
+        const r = await this.api('/api/settings/credentials/test', {
+          method: 'POST',
+          body: JSON.stringify({ host, username, password }),
+        });
+        this.credModal.testResult = r;
+      } catch (e) {
+        this.credModal.testResult = { ok: false, message: e.message };
+      } finally {
+        this.credModal.loading = false;
+      }
+    },
+    async saveCreds() {
+      const { host, username, password } = this.credModal;
+      if (!host || !username || !password) { this.toast('كل الحقول مطلوبة', 'error'); return; }
+      this.credModal.loading = true;
+      this.credModal.testResult = null;
+      try {
+        const r = await this.api('/api/settings/credentials', {
+          method: 'PUT',
+          body: JSON.stringify({ host, username, password }),
+        });
+        this.credentials = r;
+        this.toast('تم حفظ البيانات', 'success');
+        this.log('تحديث بيانات دخول الراوتر', 'ok');
+        this.credModal.open = false;
+        await this.checkHealth();
+        await this.loadDevices();
+      } catch (e) {
+        this.credModal.testResult = { ok: false, message: e.message };
+        this.toast(e.message, 'error');
+      } finally {
+        this.credModal.loading = false;
+      }
+    },
+    async loadCalibration() {
+      try {
+        const r = await this.api('/api/speed/calibration');
+        this.calibration = {
+          packetSize: r.packetSize || 800,
+          samples: (r.samples || []).length,
+          source: r.source || 'default',
+          loading: false,
+          calibrating: this.calibration.calibrating,
+        };
+      } catch (e) {}
+    },
+    async runCalibration() {
+      if (this.calibration.calibrating) return;
+      this.calibration.calibrating = true;
+      try {
+        const r = await this.api('/api/speed/calibrate?size=2', { method: 'POST' });
+        if (r.ok) {
+          this.calibration.packetSize = r.packetSize;
+          this.calibration.samples = r.samples || 0;
+          this.calibration.source = 'calibrated';
+          this.toast('تمت المعايرة: ' + r.packetSize + ' bytes/حزمة', 'success');
+          this.log('معايرة: ' + r.packetSize + ' b/p (' + r.packets + ' حزمة)', 'ok');
+        } else {
+          this.toast('فشل: ' + (r.reason || 'خطأ'), 'error');
+        }
+      } catch (e) { this.toast(e.message, 'error'); }
+      finally { this.calibration.calibrating = false; }
+    },
+    async promptManualCalibration() {
+      const v = prompt('أدخل عدد bytes لكل حزمة (200-2000):', String(this.calibration.packetSize));
+      if (!v) return;
+      const n = Number(v);
+      if (!Number.isFinite(n) || n < 200 || n > 2000) { this.toast('قيمة غير صالحة (200-2000)', 'error'); return; }
+      try {
+        const r = await this.api('/api/speed/calibration', {
+          method: 'PUT',
+          body: JSON.stringify({ packetSize: n }),
+        });
+        if (r.ok) {
+          this.calibration.packetSize = r.packetSize;
+          this.calibration.source = 'calibrated';
+          this.toast('تم الحفظ', 'success');
+        } else {
+          this.toast('قيمة مرفوضة', 'error');
+        }
+      } catch (e) { this.toast(e.message, 'error'); }
+    },
+    async resetCalibration() {
+      try {
+        const r = await this.api('/api/speed/calibration', { method: 'DELETE' });
+        this.calibration.packetSize = r.packetSize || 800;
+        this.calibration.samples = 0;
+        this.calibration.source = 'default';
+        this.toast('تم إرجاع الافتراضي', 'success');
+      } catch (e) { this.toast(e.message, 'error'); }
+    },
+    async askDetails(d) {
+      this.usageModal = { open: true, mac: d.mac, name: d.name || d.ip || '', data: null, loading: true, error: null };
+      try {
+        const r = await this.api('/api/devices/' + encodeURIComponent(d.mac) + '/usage');
+        this.usageModal.data = r;
+      } catch (e) {
+        this.usageModal.error = e.message || 'لا توجد بيانات بعد';
+      } finally {
+        this.usageModal.loading = false;
+      }
+    },
+    chartData() {
+      if (!this.usageModal.data || !this.usageModal.data.days) return [];
+      const days = this.usageModal.data.days.slice(0, 7).reverse();
+      const max = Math.max(1, ...days.map(x => Math.max(x.rx || 0, x.tx || 0)));
+      return days.map(x => ({
+        date: x.date,
+        day: (x.date || '').slice(5),
+        rx: x.rx || 0,
+        tx: x.tx || 0,
+        rxPct: Math.round(((x.rx || 0) / max) * 100),
+        txPct: Math.round(((x.tx || 0) / max) * 100),
+      }));
+    },
+    async emergencyReset() {
+      this.openConfirm({
+        title: 'إلغاء كل الحظر؟',
+        message: 'سيتم رفع كل الحظر وإعادة وضع الفلترة إلى "معطّل".',
+        detail: 'هذا الإجراء آمن — لن يقطع الإنترنت.',
+        confirmText: 'إلغاء الحظر',
+        danger: true,
+        onConfirm: async () => {
+          this.confirmModal.loading = true;
+          this.emergencyResetting = true;
+          try {
+            const r = await this.api('/api/mac-filter/emergency-reset', { method: 'POST' });
+            this.filter.mode = r.mode || 'disabled';
+            this.filter.macs = r.macs || [];
+            this.toast('تم رفع كل الحظر', 'success');
+            this.log('🚨 طوارئ: أُلغي كل الحظر', 'warn');
+            this.closeConfirm(true);
+          } catch (e) {
+            this.toast(e.message, 'error');
+            this.confirmModal.loading = false;
+          } finally {
+            this.emergencyResetting = false;
+          }
+        },
+      });
+    },
+    isBackendMac(mac) {
+      // BACKEND_MAC يُحدَّد من السيرفر — للعرض فقط
+      // في الواجهة، جهاز السيرفر هو أول جهاز في القائمة عادة (نحتفظ به)
+      const m = String(mac || '').toLowerCase();
+      // القيمة محفوظة في الواجهة بعد تحميل الإعدادات
+      return this.backendMac && this.backendMac.toLowerCase() === m;
+    },
+    askBlock(d) {
+      if (this.isBackendMac(d.mac)) {
+        this.toast('لا يمكن حظر هذا الجهاز — هو جهاز الإدارة نفسه', 'error');
+        return;
+      }
+      this.blockModal = {
+        open: true,
+        mac: d.mac,
+        name: d.name || d.ip || '',
+        mode: 'temp',
+        minutes: 30,
+        limitMb: 500,
+        blocked: !!d.blocked,
+        unblockAt: d.unblockAt || null,
+        dailyLimitBytes: d.dailyLimitBytes || 0,
+      };
+    },
+    countdownText(ts) {
+      if (!ts) return '';
+      const diff = Math.max(0, ts - Date.now());
+      const s = Math.floor(diff / 1000);
+      const h = Math.floor(s / 3600);
+      const m = Math.floor((s % 3600) / 60);
+      if (h > 0) return 'بعد ' + h + ' س ' + m + ' د';
+      if (m > 0) return 'بعد ' + m + ' دقيقة';
+      return 'بعد ' + s + ' ثانية';
+    },
+    async applyTempBlock() {
+      const m = this.blockModal.mac;
+      const mins = Math.max(1, Number(this.blockModal.minutes) || 0);
+      if (!mins) return;
+      try {
+        await this.api('/api/rules/' + encodeURIComponent(m) + '/block', {
+          method: 'POST',
+          body: JSON.stringify({ minutes: mins }),
+        });
+        this.toast('تم الحظر لمدة ' + mins + ' دقيقة', 'success');
+        this.log('حظر ' + m + ' لـ ' + mins + ' د', 'warn');
+        this.blockModal.open = false;
+        await this.loadDevices();
+      } catch (e) { this.toast(e.message, 'error'); }
+    },
+    async applyDailyLimit() {
+      const m = this.blockModal.mac;
+      const mb = Math.max(0, Number(this.blockModal.limitMb) || 0);
+      try {
+        await this.api('/api/rules/' + encodeURIComponent(m) + '/limit', {
+          method: 'PUT',
+          body: JSON.stringify({ mb }),
+        });
+        this.toast(mb > 0 ? 'الحد اليومي: ' + mb + ' MB' : 'تم إزالة الحد', 'success');
+        this.log('حد يومي ' + m + ' → ' + mb + ' MB', 'ok');
+        this.blockModal.open = false;
+        await this.loadDevices();
+      } catch (e) { this.toast(e.message, 'error'); }
+    },
+    async unblockNow() {
+      const m = this.blockModal.mac;
+      try {
+        await this.api('/api/rules/' + encodeURIComponent(m) + '/block', { method: 'DELETE' });
+        this.toast('تم رفع الحظر', 'success');
+        this.log('رفع حظر ' + m, 'ok');
+        this.blockModal.open = false;
+        await this.loadDevices();
+      } catch (e) { this.toast(e.message, 'error'); }
+    },
+    filteredDevices() {
+      if (this.deviceTab === 'active') return this.devices.filter(d => d.online);
+      return this.devices.filter(d => !d.online);
+    },
+    activeCount() {
+      return this.devices.filter(d => d.online).length;
+    },
+    inactiveCount() {
+      return this.devices.filter(d => !d.online).length;
+    },
+    askDeleteKnown(d) {
+      const label = d.name || d.mac;
+      this.openConfirm({
+        title: 'حذف سجل الجهاز؟',
+        message: label,
+        detail: 'سيُحذف الاسم والاستهلاك المرتبط. إذا اتصل الجهاز مجددًا سيعود بدون اسم.',
+        confirmText: 'حذف',
+        danger: true,
+        onConfirm: async () => {
+          this.confirmModal.loading = true;
+          try {
+            await this.deleteKnown(d.mac);
+          } finally {
+            this.confirmModal.loading = false;
+            this.closeConfirm(true);
+          }
+        },
+      });
+    },
+    async deleteKnown(mac) {
+      try {
+        await this.api('/api/devices/' + encodeURIComponent(mac) + '/known', { method: 'DELETE' });
+        this.devices = this.devices.filter(x => x.mac !== mac);
+        this.toast('تم الحذف', 'success');
+        this.log('حذف سجل: ' + mac, 'warn');
+      } catch (e) { this.toast(e.message, 'error'); }
+    },
+    askRename(d) {
+      this.renameModal = { open: true, mac: d.mac, name: d.name || '' };
+    },
+    async saveName() {
+      const mac = this.renameModal.mac;
+      // اقرأ من DOM مباشرة (موثوق أكثر من x-model مع Enter)
+      const inputEl = document.getElementById('rename-input');
+      const domValue = inputEl ? inputEl.value : '';
+      const modelValue = this.renameModal.name || '';
+      // استخدم الأطول (لو Alpine تأخر في التحديث)
+      const name = ((domValue.length >= modelValue.length) ? domValue : modelValue).trim();
+      console.log('[saveName] mac="' + mac + '" modelName="' + modelValue + '" domName="' + domValue + '" final="' + name + '"');
+      try {
+        const r = await this.api('/api/devices/' + encodeURIComponent(mac) + '/name', {
+          method: 'PUT',
+          body: JSON.stringify({ name: name }),
+        });
+        console.log('[saveName] response:', JSON.stringify(r));
+        const dev = this.devices.find(x => (x.mac || '').toLowerCase() === mac.toLowerCase());
+        if (dev) dev.name = r.name || null;
+        this.renameModal.open = false;
+        if (r && r.name) {
+          this.toast('✅ تم الحفظ: ' + r.name, 'success');
+          this.log('تسمية ' + mac + ' → ' + r.name, 'ok');
+        } else {
+          this.toast('⚠️ لم يُحفظ الاسم', 'warn');
+        }
+      } catch (e) {
+        console.error('[saveName] error:', e);
+        this.toast('فشل: ' + e.message, 'error');
+      }
+    },
+    openModal(cfg) { this.modal = { open: true, ...cfg }; },
+    closeModal() { this.modal.open = false; },
+    confirmModal() { const fn = this.modal.onConfirm; this.modal.open = false; if (typeof fn === 'function') fn(); },
+    toast(msg, type = 'info') { const id = ++this.toastSeq; this.toasts.push({ id, msg, type }); setTimeout(() => this.dismissToast(id), 4000); },
+    dismissToast(id) { this.toasts = this.toasts.filter(t => t.id !== id); },
+    log(msg, type = 'ok') { this.history.unshift({ msg, type, at: Date.now() }); this.history = this.history.slice(0, 20); localStorage.setItem('history', JSON.stringify(this.history)); },
+    clearHistory() { this.history = []; localStorage.removeItem('history'); },
+    gaugeValue() {
+      if (!this.speed.result) return 0;
+      const d = this.speed.result;
+      if (this.speed.mode === 'upload') return d.upload?.mbps ?? 0;
+      return d.download?.mbps ?? 0;
+    },
+    gaugeMax() {
+      const v = this.gaugeValue();
+      if (v <= 1) return 2;
+      if (v <= 5) return 10;
+      if (v <= 20) return 30;
+      if (v <= 50) return 100;
+      if (v <= 200) return 300;
+      return Math.ceil(v / 100) * 100;
+    },
+    gaugeOffset() {
+      const max = this.gaugeMax();
+      const v = Math.min(this.gaugeValue(), max);
+      return 251.33 * (1 - v / max);
+    },
+    needleAngle() {
+      const max = this.gaugeMax();
+      const v = Math.min(this.gaugeValue(), max);
+      return -90 + (v / max) * 180;
+    },
+    gaugeColor() {
+      const max = this.gaugeMax();
+      const v = this.gaugeValue();
+      const ratio = max > 0 ? v / max : 0;
+      if (ratio < 0.3) return '#06b6d4';
+      if (ratio < 0.7) return '#22c55e';
+      return '#ef4444';
+    },
+    gaugeKbps() {
+      if (!this.speed.result) return '—';
+      const d = this.speed.result;
+      if (this.speed.mode === 'upload') return d.upload?.kbps ?? 0;
+      return d.download?.kbps ?? 0;
+    },
+    async verifySecurityPersisted() {
+      if (!this.security.pendingVerify) return;
+      try {
+        // فحص هادئ — بدون تغيير UI أثناء الفحص
+        const r = await this.api('/api/security/scan');
+        const newResults = r.results || [];
+        const newSummary = r.summary;
+
+        // قارن: أي عنصر كان 🟢 الآن → 🟡 أو أعلى؟
+        const before = this.security.results || [];
+        const regressed = [];
+        for (const nb of newResults) {
+          if (nb.severity === 'ok') continue;
+          const ob = before.find(b => b.id === nb.id);
+          if (ob && ob.severity === 'ok') {
+            regressed.push({ title: nb.title, severity: nb.severity });
+          }
+        }
+
+        if (regressed.length > 0) {
+          // 🚨 تراجع مكتشف!
+          this.security.results = newResults;
+          this.security.summary = newSummary;
+          this.security.score = newSummary.score;
+          this.toast('🚨 تنبيه: الإصلاحات عادت للظهور!', 'error');
+          this.log('🚨 تراجع أمني: ' + regressed.length + ' مشكلة عادت', 'error');
+          // modal تنبيه
+          this.openConfirm({
+            title: '🚨 تنبيه أمني',
+            message: 'الراوتر أعاد التحذيرات الأمنية بعد الإصلاح',
+            detail: 'السبب الأرجح: TR-069 (المزود يعيد الإعدادات).\n\nعدد التحذيرات العائدة: ' + regressed.length + '\n\n' + regressed.map(x => '• ' + x.title).join('\n'),
+            confirmText: 'إعادة الإصلاح',
+            danger: true,
+            onConfirm: async () => {
+              this.confirmModal.loading = true;
+              this.confirmModal.open = false;
+              setTimeout(() => this.fixAllIssues(), 500);
+            },
+          });
+        } else {
+          // لا تراجع — تحديث النقاط فقط
+          this.security.summary = newSummary;
+          this.security.score = newSummary.score;
+          this.security.results = newResults;
+          this.log('✅ الإصلاحات محفوظة', 'ok');
+        }
+        this.security.pendingVerify = false;
+      } catch (e) {
+        console.warn('[verify] failed:', e.message);
+      }
+    },
+    saveSecurityState() {
+      try {
+        window.appStore.set('security-state', {
+          results: this.security.results,
+          summary: this.security.summary,
+          score: this.security.score,
+          at: Date.now(),
+        });
+      } catch (e) {}
+    },
+    restoreSecurityState() {
+      try {
+        const saved = window.appStore.get('security-state', null);
+        if (!saved || !saved.results) return false;
+        this.security.results = saved.results;
+        this.security.summary = saved.summary;
+        this.security.score = saved.score;
+        this.security.scanned = true;
+        return true;
+      } catch (e) { return false; }
+    },
+    async loadSecurity() {
+      // لا نعيد الفحص تلقائياً — نعرض آخر حالة محفوظة
+      const restored = this.restoreSecurityState();
+      if (restored) {
+        console.log('[security] restored last scan from localStorage');
+        return;
+      }
+      // أول مرة فقط — فحص
+      try {
+        const r = await this.api('/api/security/last-scan');
+        if (r && r.summary) {
+          this.security.results = r.results || [];
+          this.security.summary = r.summary;
+          this.security.score = r.summary.score;
+          this.security.scanned = true;
+        }
+      } catch (e) {}
+    },
+    async runSecurityScan() {
+      if (this.security.scanning) return;
+      this.security.scanning = true;
+      this.toast('بدء فحص الأمان…', 'info');
+      try {
+        const r = await this.api('/api/security/scan');
+        this.security.results = r.results || [];
+        this.security.summary = r.summary;
+        this.security.score = r.summary ? r.summary.score : null;
+        this.security.scanned = true;
+        const crit = this.security.summary.critical || 0;
+        const high = this.security.summary.high || 0;
+        if (crit > 0) {
+          this.toast('🚨 ' + crit + ' مشكلة حرجة!', 'error');
+        } else if (high > 0) {
+          this.toast('⚠️ ' + high + ' مشكلة عالية الخطورة', 'warn');
+        } else {
+          this.toast('✅ الراوتر آمن', 'success');
+        }
+        this.log('فحص أمان — نقاط: ' + this.security.score, crit > 0 ? 'error' : 'ok');
+      } catch (e) {
+        this.toast('فشل الفحص: ' + e.message, 'error');
+      } finally {
+        this.security.scanning = false;
+      }
+    },
+    async applySecurityFix(item) {
+      if (!item || !item.fixAction || !item.fixAction.url) {
+        this.toast('هذا الفحص لا يدعم الإصلاح التلقائي', 'warn');
+        return;
+      }
+      const fixName = String(item.fixAction.url).split('/').pop();
+      const title = item.title || 'الإصلاح';
+      this.openConfirm({
+        title: 'تطبيق الإصلاح',
+        message: title,
+        detail: 'سيتم تعديل إعدادات الراوتر. قد يفقد الاتصال لثوانٍ قليلة.',
+        confirmText: 'تطبيق الآن',
+        danger: true,
+        onConfirm: async () => {
+          this.confirmModal.loading = true;
+          try {
+            await this.api('/api/security/fix/' + fixName, { method: 'POST' });
+            this.toast('✅ تم الإصلاح', 'success');
+            this.log('إصلاح أمني: ' + title, 'warn');
+            this.security.results = this.security.results.map(r => {
+              if (r.fixAction && r.fixAction.url && String(r.fixAction.url).endsWith('/' + fixName)) {
+                return { ...r, severity: 'ok', title: '✅ تم الإصلاح', description: 'تم تطبيق الإصلاح.', fixable: false, fixAction: null, fixLabel: null };
+              }
+              return r;
+            });
+            const crit = this.security.results.filter(x => x.severity === 'critical').length;
+            const high = this.security.results.filter(x => x.severity === 'high').length;
+            const med = this.security.results.filter(x => x.severity === 'medium').length;
+            const low = this.security.results.filter(x => x.severity === 'low').length;
+            const ok = this.security.results.filter(x => x.severity === 'ok').length;
+            this.security.summary = { critical: crit, high, medium: med, low, ok, score: Math.max(0, 100 - crit*30 - high*20 - med*10 - low*2), at: Date.now() };
+            this.security.score = this.security.summary.score;
+            this.confirmModal.loading = false;
+            this.closeConfirm(true);
+            this.security.fixedAt = Date.now();
+            this.security.pendingVerify = true;
+            this.toast('✅ تم الإصلاح — جاري المراقبة', 'success');
+            setTimeout(() => this.verifySecurityPersisted(), 5 * 60 * 1000);
+          } catch (e) {
+            this.toast('فشل الإصلاح: ' + e.message, 'error');
+            this.confirmModal.loading = false;
+            this.closeConfirm(true);
+          }
+        },
+      });
+    },
+    getFixableIssues() {
+      return (this.security.results || []).filter(r => r.fixable && r.fixAction && r.fixAction.url);
+    },
+    async fixAllIssues() {
+      const issues = this.getFixableIssues();
+      if (!issues.length) {
+        this.toast('لا توجد مشاكل قابلة للإصلاح', 'warn');
+        return;
+      }
+      const names = issues
+        .map(i => String(i.fixAction.url).split('/').pop())
+        .filter(n => n !== 'wifi-enc');
+      if (!names.length) {
+        this.toast('لا توجد إصلاحات تلقائية', 'warn');
+        return;
+      }
+      const list = issues
+        .filter(i => String(i.fixAction.url).split('/').pop() !== 'wifi-enc')
+        .map(i => '• ' + i.title)
+        .join('\n');
+
+      this.openConfirm({
+        title: 'إصلاح كل المشاكل؟',
+        message: 'سيتم إصلاح ' + names.length + ' مشكلة:',
+        detail: list + '\n\n⏱️ قد يستغرق دقيقة. لا تغلق التطبيق.',
+        confirmText: 'بدء الإصلاح',
+        danger: true,
+        onConfirm: async () => {
+          this.confirmModal.loading = true;
+          this.security.fixingAll = true;
+          this.toast('⏳ جاري الإصلاح… لا تغلق التطبيق', 'info');
+          try {
+            const timeoutPromise = new Promise((_, reject) =>
+              setTimeout(() => reject(new Error('انتهت المهلة — حاول مرة أخرى')), 90000)
+            );
+            const r = await Promise.race([
+              this.api('/api/security/fix-all', {
+                method: 'POST',
+                body: JSON.stringify({ names: names }),
+              }),
+              timeoutPromise,
+            ]);
+            const okCount = (r.succeeded || []).length;
+            const failCount = (r.failed || []).length;
+            if (okCount > 0) {
+              this.toast('✅ تم إصلاح ' + okCount + ' مشكلة' + (failCount ? ' — فشل ' + failCount : ''), failCount ? 'warn' : 'success');
+              this.log('إصلاح جماعي: نجح ' + okCount + '، فشل ' + failCount, 'warn');
+            } else {
+              this.toast('⚠️ لم ينجح أي إصلاح — تحقق من السجل', 'warn');
+            }
+            const succeeded = r.succeeded || [];
+            this.security.results = this.security.results.map(item => {
+              const key = item.fixAction && item.fixAction.url ? String(item.fixAction.url).split('/').pop() : null;
+              if (key && succeeded.includes(key)) {
+                return { ...item, severity: 'ok', title: '✅ تم الإصلاح', description: 'تم تطبيق الإصلاح.', fixable: false, fixAction: null, fixLabel: null };
+              }
+              return item;
+            });
+            const crit = this.security.results.filter(x => x.severity === 'critical').length;
+            const high = this.security.results.filter(x => x.severity === 'high').length;
+            const med = this.security.results.filter(x => x.severity === 'medium').length;
+            const low = this.security.results.filter(x => x.severity === 'low').length;
+            const ok = this.security.results.filter(x => x.severity === 'ok').length;
+            this.security.summary = { critical: crit, high, medium: med, low, ok, score: Math.max(0, 100 - crit*30 - high*20 - med*10 - low*2), at: Date.now() };
+            this.security.score = this.security.summary.score;
+            this.confirmModal.loading = false;
+            this.closeConfirm(true);
+            // نحتفظ بالحالة الجديدة لمدة 5 دقائق
+            this.security.fixedAt = Date.now();
+            this.security.pendingVerify = true;
+            this.toast('✅ تم الإصلاح — جاري المراقبة', 'success');
+            // جدولة التحقق بعد 5 دقائق
+            setTimeout(() => this.verifySecurityPersisted(), 5 * 60 * 1000);
+          } catch (e) {
+            this.toast('فشل الإصلاح: ' + e.message, 'error');
+            this.confirmModal.loading = false;
+            this.closeConfirm(true);
+          } finally {
+            this.security.fixingAll = false;
+          }
+        },
+      });
+    },
+    openConfirm(cfg) {
+      this.confirmModal = {
+        open: true,
+        title: cfg.title || 'تأكيد',
+        message: cfg.message || '',
+        detail: cfg.detail || '',
+        confirmText: cfg.confirmText || 'تأكيد',
+        danger: cfg.danger !== false,
+        loading: false,
+        onConfirm: cfg.onConfirm || null,
+      };
+    },
+    closeConfirm(force) {
+      if (this.confirmModal.loading && !force) return;
+      this.confirmModal.loading = false;
+      this.confirmModal.open = false;
+    },
+    async confirmAction() {
+      const fn = this.confirmModal.onConfirm;
+      if (typeof fn === 'function') {
+        await fn();
+      }
+    },
+    securityScoreColor(score) {
+      if (score === null || score === undefined) return '#64748b';
+      if (score >= 80) return '#16a34a';
+      if (score >= 60) return '#ca8a04';
+      if (score >= 40) return '#ea580c';
+      return '#dc2626';
+    },
+    securityScoreLabel(score) {
+      if (score === null || score === undefined) return 'لم يُفحص';
+      if (score >= 80) return 'آمن';
+      if (score >= 60) return 'مقبول';
+      if (score >= 40) return 'يحتاج تحسين';
+      return 'خطر';
+    },
+    sevColor(sev) {
+      return { critical: '#dc2626', high: '#ea580c', medium: '#ca8a04', low: '#64748b', ok: '#16a34a' }[sev] || '#64748b';
+    },
+    sevBg(sev) {
+      return {
+        critical: 'bg-red-50 dark:bg-red-950/30 border-red-300 dark:border-red-800',
+        high: 'bg-orange-50 dark:bg-orange-950/30 border-orange-300 dark:border-orange-800',
+        medium: 'bg-amber-50 dark:bg-amber-950/30 border-amber-300 dark:border-amber-800',
+        low: 'bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700',
+        ok: 'bg-green-50 dark:bg-green-950/30 border-green-300 dark:border-green-800',
+      }[sev] || 'bg-gray-50 dark:bg-gray-800';
+    },
+    sevIcon(sev) {
+      return { critical: '🚨', high: '⚠️', medium: '⚡', low: 'ℹ️', ok: '✅' }[sev] || 'ℹ️';
+    },
+    txPowerLabel(v) {
+      return ['100% (كامل)', '80% (عالي)', '50% (متوسط)', '25% (منخفض)', '10% (منخفض جداً)'][v] || '—';
+    },
+    async changeTxPower(level) {
+      if (this.wifi.txpower === level) {
+        this.toast('هذا المستوى مطبق بالفعل', 'info');
+        return;
+      }
+      this.savingTxPower = true;
+      try {
+        await this.api('/api/wifi/txpower', {
+          method: 'PUT',
+          body: JSON.stringify({ level: level }),
+        });
+        this.wifi.txpower = level;
+        this.toast('✅ ' + this.txPowerLabel(level), 'success');
+        this.log('قوة البث: ' + this.txPowerLabel(level), 'ok');
+      } catch (e) {
+        this.toast('فشل: ' + e.message, 'error');
+      } finally {
+        this.savingTxPower = false;
+      }
+    },
+    suggestPassword() {
+      const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789!@#$%';
+      let pwd = '';
+      for (let i = 0; i < 16; i++) pwd += chars[Math.floor(Math.random() * chars.length)];
+      this.wifiSec.password = pwd;
+      this.wifiSec.showPass = true;
+      this.toast('تم اقتراح كلمة مرور قوية', 'success');
+    },
+    async saveSecurity() {
+      if (this.wifiSec.password.length < 8) {
+        this.toast('كلمة المرور يجب أن تكون 8 أحرف على الأقل', 'error');
+        return;
+      }
+      const encType = this.wifiSec.encryption;
+      const advanced = this.wifiSec.advanced;
+      this.openConfirm({
+        title: 'تغيير حماية الشبكة',
+        message: 'سيتم تطبيق: ' + encType,
+        detail: '⚠️ سيقطع الاتصال بالواي فاي فوراً.\n\nستحتاج إدخال كلمة المرور الجديدة يدوياً على كل أجهزتك.',
+        confirmText: 'تطبيق الآن',
+        danger: true,
+        onConfirm: async () => {
+          this.confirmModal.loading = true;
+          this.wifiSec.saving = true;
+          try {
+            await this.api('/api/wifi/security', {
+              method: 'PUT',
+              body: JSON.stringify({
+                encryption: encType,
+                password: this.wifiSec.password,
+                advanced: advanced,
+              }),
+            });
+            this.toast('✅ تم تطبيق الحماية', 'success');
+            this.log('تغيير تشفير: ' + encType, 'warn');
+            this.wifiSec.password = '';
+            this.wifiSec.showPass = false;
+            this.closeConfirm(true);
+            setTimeout(() => { try { this.loadWifi(); } catch (e) {} }, 3000);
+          } catch (e) {
+            this.toast('فشل: ' + e.message, 'error');
+            this.confirmModal.loading = false;
+          } finally {
+            this.wifiSec.saving = false;
+          }
+        },
+      });
+    },
+    getVendor(mac) {
+      if (!window.vendor) return { icon: '❓', vendor: null, vendorAr: null };
+      try { return window.vendor.identify(mac); }
+      catch (e) { return { icon: '❓', vendor: null, vendorAr: null }; }
+    },
+    fmtBytes(n) {
+      if (!n && n !== 0) return '—';
+      const v = Number(n);
+      if (v < 1024) return v + ' B';
+      if (v < 1048576) return (v / 1024).toFixed(1) + ' KB';
+      if (v < 1073741824) return (v / 1048576).toFixed(1) + ' MB';
+      return (v / 1073741824).toFixed(2) + ' GB';
+    },
+    fmtTime(ts) { const d = ts instanceof Date ? ts : new Date(ts); return d.toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' }); },
+    fmtDate(ts) { if (!ts) return '—'; const d = new Date(ts); return d.toLocaleString('ar-EG', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }); },
+  };
+}
+</script>
+
+<!-- ═══════════ Stage 3a: Full App Libraries ═══════════ -->
+<script src="lib/diagnostics.js"></script>
+<script src="lib/md5.js"></script>
+<script src="lib/http.js"></script>
+<script src="lib/storage-app.js"></script>
+<script src="lib/router-full.js"></script>
+<script src="lib/speed.js"></script>
+<script src="lib/vendor.js"></script>
+<script src="lib/api.js"></script>
+<script src="lib/security.js"></script>
+<script src="lib/security-fixes.js"></script>
+<script src="lib/rules.js"></script>
+<script src="lib/dns.js"></script>
+
+<!-- ═══════════ Credentials Guard + Helpers ═══════════ -->
+<script>
+(function() {
+  window.appGoToSetup = function() {
+    window.diag && window.diag.log('goToSetup');
+    if (window.__alpineApp) {
+      window.__alpineApp.openConfirm({
+        title: 'تغيير بيانات الراوتر؟',
+        message: 'سيتم حذف بيانات الاعتماد والعودة لشاشة الإعداد الأول.',
+        detail: 'ستحتاج إدخال بيانات الراوتر مرة أخرى.',
+        confirmText: 'متابعة',
+        danger: true,
+        onConfirm: () => {
+          window.appStore.clearCredentials();
+          if (window.http && window.http.clearCookies) window.http.clearCookies();
+          window.location.replace('setup.html');
+        },
+      });
+      return;
+    }
+    // fallback
+    if (!window.confirm('سيتم حذف بيانات الراوتر والعودة لشاشة الإعداد.\nمتابعة؟')) return;
+    window.appStore.clearCredentials();
+    if (window.http && window.http.clearCookies) window.http.clearCookies();
+    window.location.replace('setup.html');
+  };
+
+  var creds = window.appStore && window.appStore.getCredentials();
+  if (!creds || !creds.host || !creds.username) {
+    console.log('[guard] no credentials → setup.html');
+    window.location.replace('setup.html');
+  } else {
+    console.log('[guard] credentials OK for', creds.host);
+    if (window.apiHelpers) window.apiHelpers.startTrafficPoll();
+    // Rules enforcement كل 3 دقائق
+    if (window.rulesService) {
+      setTimeout(function() {
+        window.rulesService.enforce().catch(function(e) { console.log('[enforce] err:', e.message); });
+      }, 60000);
+      setInterval(function() {
+        window.rulesService.enforce().catch(function(e) { console.log('[enforce] err:', e.message); });
+      }, 180000);
+      console.log('[guard] rules enforce scheduled');
+    }
+  }
+})();
+</script>
+
+<!-- ═══════════ Offline Overlay ═══════════ -->
+<div id="offline-overlay" style="display:none;position:fixed;inset:0;z-index:999999;background:linear-gradient(135deg,#0f172a 0%,#1e293b 100%);color:#e2e8f0;font-family:-apple-system,system-ui,'Segoe UI',sans-serif;padding:20px;">
+  <div style="max-width:420px;margin:auto;padding-top:15vh;text-align:center;">
+    <div style="width:90px;height:90px;margin:0 auto 24px;border-radius:50%;background:linear-gradient(135deg,#dc2626,#ef4444);display:flex;align-items:center;justify-content:center;box-shadow:0 8px 24px rgba(220,38,38,0.4);">
+      <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" style="width:48px;height:48px;">
+        <line x1="1" y1="1" x2="23" y2="23"/>
+        <path d="M16.72 11.06A10.94 10.94 0 0 1 19 12.55"/>
+        <path d="M5 12.55a10.94 10.94 0 0 1 5.17-2.39"/>
+        <path d="M10.71 5.05A16 16 0 0 1 22.58 9"/>
+        <path d="M1.42 9a15.91 15.91 0 0 1 4.7-2.88"/>
+        <path d="M8.53 16.11a6 6 0 0 1 6.95 0"/>
+        <line x1="12" y1="20" x2="12.01" y2="20"/>
+      </svg>
+    </div>
+    <h1 style="font-size:22px;font-weight:800;margin-bottom:12px;">لا يوجد اتصال بالإنترنت</h1>
+    <p style="font-size:14px;color:#94a3b8;line-height:1.7;margin-bottom:8px;">
+      يحتاج التطبيق للإنترنت لتحميل واجهته.
+    </p>
+    <p style="font-size:13px;color:#64748b;line-height:1.7;margin-bottom:32px;">
+      يرجى تفعيل الواي فاي أو بيانات الجوال، ثم اضغط "إعادة المحاولة".
+    </p>
+
+    <button onclick="window.location.reload()" style="width:100%;padding:16px;border-radius:12px;border:none;background:linear-gradient(135deg,#2563eb,#1d4ed8);color:white;font-size:15px;font-weight:700;font-family:inherit;cursor:pointer;box-shadow:0 6px 20px rgba(37,99,235,0.4);">
+      🔄 إعادة المحاولة
+    </button>
+
+    <div style="margin-top:24px;padding-top:24px;border-top:1px solid rgba(148,163,184,0.15);">
+      <p style="font-size:12px;color:#64748b;line-height:1.6;">
+        💡 يمكنك التحكم بالراوتر عبر شاشة الإعداد إن كان جهازك على واي فاي JABER_TEL
+      </p>
+    </div>
+
+    <div id="offline-check-info" style="margin-top:16px;font-size:11px;color:#475569;font-family:monospace;direction:ltr;">
+      Checking connectivity...
+    </div>
+  </div>
+</div>
+
+<script>
+(function() {
+  var overlay = document.getElementById('offline-overlay');
+  var info = document.getElementById('offline-check-info');
+
+  function setInfo(msg) {
+    if (info) info.textContent = msg;
+  }
+
+  function checkOnline() {
+    // نتحقق من الإنترنت عبر Cloudflare (سريع + موثوق)
+    var controller = new AbortController();
+    var timer = setTimeout(function() { controller.abort(); }, 4000);
+
+    return fetch('https://speed.cloudflare.com/__down?bytes=1', {
+      method: 'GET',
+      cache: 'no-store',
+      signal: controller.signal
+    }).then(function(r) {
+      clearTimeout(timer);
+      return r.ok || r.status === 200;
+    }).catch(function() {
+      clearTimeout(timer);
+      return false;
+    });
+  }
+
+  function showOverlay(reason) {
+    if (overlay) overlay.style.display = 'block';
+    setInfo('Offline: ' + (reason || 'no response'));
+  }
+
+  function hideOverlay() {
+    if (overlay) overlay.style.display = 'none';
+  }
+
+  // تحقق فوري عند فتح التطبيق
+  if (navigator.onLine === false) {
+    showOverlay('navigator says offline');
+  } else {
+    // نتحقق فعلياً (navigator قد يكون مضللاً)
+    checkOnline().then(function(ok) {
+      if (!ok) {
+        showOverlay('connectivity test failed');
+      } else {
+        setInfo('Online ✅');
+      }
+    });
+  }
+
+  // مراقبة تغيرات الاتصال
+  window.addEventListener('online', function() {
+    setInfo('online event received');
+    checkOnline().then(function(ok) { if (ok) hideOverlay(); });
+  });
+
+  window.addEventListener('offline', function() {
+    showOverlay('offline event');
+  });
+
+  // فحص كل 10 ثواني (لو الـ overlay ظاهر)
+  setInterval(function() {
+    if (overlay && overlay.style.display === 'block') {
+      checkOnline().then(function(ok) { if (ok) hideOverlay(); });
+    }
+  }, 10000);
+})();
+</script>
+
+</body>
+</html>
+

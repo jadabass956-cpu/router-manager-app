@@ -750,6 +750,98 @@ tailwind.config = {
       <span x-text="security.scanning ? 'جاري الفحص… (30 ثانية)' : (security.scanned ? 'إعادة الفحص' : 'بدء الفحص الأمني')"></span>
     </button>
 
+    <!-- ═══ Connection Identity Card ═══ -->
+    <div class="rounded-xl p-4 border-2 space-y-3 transition"
+         :class="identity.data && identity.data.evaluation ? identitySeverityClass(identity.data.evaluation.severity) : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700'">
+
+      <div class="flex items-center justify-between">
+        <h3 class="font-bold text-sm flex items-center gap-2">
+          <span>🌐 هوية اتصالك</span>
+          <span x-show="identity.data && identity.data.evaluation"
+                x-text="identityIcon(identity.data.evaluation.severity)"
+                class="text-lg"></span>
+        </h3>
+        <button @click="loadIdentity()" :disabled="identity.loading"
+                class="text-xs px-2.5 py-1 rounded-lg bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-50">
+          <span x-text="identity.loading ? '…' : '🔄 تحديث'"></span>
+        </button>
+      </div>
+
+      <!-- Loading -->
+      <div x-show="identity.loading" class="space-y-2">
+        <div class="skeleton h-4 w-2/3 rounded"></div>
+        <div class="skeleton h-4 w-1/2 rounded"></div>
+        <div class="skeleton h-4 w-3/4 rounded"></div>
+      </div>
+
+      <!-- Error -->
+      <div x-show="!identity.loading && identity.error"
+           class="bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 rounded-lg p-3 text-xs text-red-700 dark:text-red-400">
+        <span x-text="identity.error"></span>
+      </div>
+
+      <!-- Data -->
+      <div x-show="!identity.loading && identity.data && identity.data.ok" class="space-y-2.5">
+
+        <!-- Status label -->
+        <div x-show="identity.data && identity.data.evaluation"
+             class="text-sm font-bold"
+             :class="{
+               'text-green-700 dark:text-green-400': identity.data.evaluation && identity.data.evaluation.severity === 'ok',
+               'text-blue-700 dark:text-blue-400': identity.data.evaluation && identity.data.evaluation.severity === 'low',
+               'text-amber-700 dark:text-amber-400': identity.data.evaluation && identity.data.evaluation.severity === 'medium',
+               'text-red-700 dark:text-red-400': identity.data.evaluation && identity.data.evaluation.severity === 'high'
+             }"
+             x-text="identity.data.evaluation ? identity.data.evaluation.label : ''"></div>
+
+        <!-- Details table -->
+        <div class="bg-white/60 dark:bg-gray-900/50 rounded-lg p-3 space-y-2 text-xs">
+          <div class="flex items-center justify-between gap-2">
+            <span class="text-gray-500 shrink-0">IP العام</span>
+            <span class="font-mono truncate text-left" dir="ltr" x-text="identity.data.ip || '—'"></span>
+          </div>
+          <div class="flex items-center justify-between gap-2" x-show="identity.data.isp">
+            <span class="text-gray-500 shrink-0">المزود</span>
+            <span class="font-medium truncate text-left" x-text="identity.data.isp"></span>
+          </div>
+          <div class="flex items-center justify-between gap-2" x-show="identity.data.countryName">
+            <span class="text-gray-500 shrink-0">الدولة</span>
+            <span class="font-medium" x-text="identity.data.countryName + (identity.data.city ? ' — ' + identity.data.city : '')"></span>
+          </div>
+          <div class="flex items-center justify-between gap-2" x-show="identity.data.asn">
+            <span class="text-gray-500 shrink-0">ASN</span>
+            <span class="font-mono" dir="ltr" x-text="identity.data.asn"></span>
+          </div>
+          <div class="flex items-center justify-between gap-2" x-show="identity.data.colo">
+            <span class="text-gray-500 shrink-0">Cloudflare</span>
+            <span class="font-mono" dir="ltr" x-text="identity.data.colo"></span>
+          </div>
+          <div class="flex items-center justify-between gap-2" x-show="identity.data.warp">
+            <span class="text-gray-500 shrink-0">WARP</span>
+            <span class="font-medium" :class="identity.data.warp === 'on' ? 'text-amber-600 dark:text-amber-400' : 'text-gray-400'"
+                  x-text="identity.data.warp === 'on' ? 'مفعّل' : 'معطّل'"></span>
+          </div>
+        </div>
+
+        <!-- Warnings -->
+        <div x-show="identity.data.evaluation && identity.data.evaluation.warnings && identity.data.evaluation.warnings.length > 0"
+             class="space-y-1.5">
+          <template x-for="(w, i) in (identity.data.evaluation ? identity.data.evaluation.warnings : [])" :key="i">
+            <div class="flex items-start gap-2 text-[11px] leading-relaxed text-gray-700 dark:text-gray-300">
+              <span x-text="w.severity === 'high' ? '🚨' : (w.severity === 'medium' ? '⚠️' : 'ℹ️')"></span>
+              <span x-text="w.text"></span>
+            </div>
+          </template>
+        </div>
+
+        <!-- Hint -->
+        <p class="text-[10px] text-gray-400 leading-relaxed">
+          💡 هذا الفحص يستعلم من خدمات خارجية عن IP والمزود والدولة — للتحقق من مسار اتصالك.
+        </p>
+      </div>
+    </div>
+
+
     <!-- زر إصلاح الكل -->
     <button x-show="security.scanned && !security.scanning && getFixableIssues().length > 0"
             @click="fixAllIssues()"
@@ -1430,6 +1522,7 @@ function app() {
     credentials: { host: '', username: '', password: '', source: 'env' },
     update: { current: '', latest: '', minRequired: '', updateAvailable: false, blocked: false, killSwitch: false, forceUpdate: false, message: '', announcement: '', checkedAt: 0, ok: false },
     wifiSec: { encryption: 'WPA2-AES', password: '', advanced: false, showPass: false, saving: false },
+    identity: { loading: false, data: null, error: null },
     savingTxPower: false,
     TX_POWER_LEVELS: [{v:0,n:'100%'},{v:1,n:'80%'},{v:2,n:'50%'},{v:3,n:'25%'},{v:4,n:'10%'}],
     time: { date: { year: 0, month: 1, day: 1, hour: 0, min: 0, sec: 0 }, daylightsaving: 0, ntp: { enabled: false, server1: '', server2: '', interval: 1, timezone: null }, gmtTime: '', loaded: false, editMode: false, edit: {}, saving: false, tzSelected: null, tzSaving: false, ntpSaving: false, syncing: false },
@@ -1505,7 +1598,7 @@ function app() {
       else if (this.tab === 'wifi') await this.loadWifi();
       else if (this.tab === 'wan') { await this.loadWan(); await this.loadPppoe(); }
       else if (this.tab === 'time') { await this.loadTime(); await this.loadTimezones(); }
-      else if (this.tab === 'security') { await this.loadSecurity(); }
+      else if (this.tab === 'security') { await this.loadSecurity(); await this.loadIdentity(); }
     },
     async loadDevices() {
       this.loading.devices = true;
@@ -2591,6 +2684,30 @@ function app() {
         },
       });
     },
+    async loadIdentity() {
+      if (this.identity.loading) return;
+      this.identity.loading = true;
+      this.identity.error = null;
+      try {
+        const r = await this.api('/api/security/identity');
+        this.identity.data = r;
+      } catch (e) {
+        this.identity.error = e.message;
+      } finally {
+        this.identity.loading = false;
+      }
+    },
+    identitySeverityClass(sev) {
+      return {
+        ok: 'bg-green-50 dark:bg-green-950/30 border-green-300 dark:border-green-800',
+        low: 'bg-blue-50 dark:bg-blue-950/30 border-blue-300 dark:border-blue-800',
+        medium: 'bg-amber-50 dark:bg-amber-950/30 border-amber-300 dark:border-amber-800',
+        high: 'bg-red-50 dark:bg-red-950/30 border-red-300 dark:border-red-800',
+      }[sev] || 'bg-gray-50 dark:bg-gray-800';
+    },
+    identityIcon(sev) {
+      return { ok: '🟢', low: '🔵', medium: '⚠️', high: '🚨' }[sev] || 'ℹ️';
+    },
     getVendor(mac) {
       if (!window.vendor) return { icon: '❓', vendor: null, vendorAr: null };
       try { return window.vendor.identify(mac); }
@@ -2622,6 +2739,7 @@ function app() {
 <script src="lib/security.js"></script>
 <script src="lib/security-fixes.js"></script>
 <script src="lib/rules.js"></script>
+<script src="lib/dns.js"></script>
 
 <!-- ═══════════ Credentials Guard + Helpers ═══════════ -->
 <script>
