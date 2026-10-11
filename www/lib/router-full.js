@@ -294,9 +294,33 @@
         this._req(EP.wifi.securityPage),
       ]);
       const ssid = field(basic.body, EP.basicFields.ssid);
+      const txpower = Number(field(basic.body, 'txpower')) || 0;
       const method = this._readMethodSmart(security.body);
       const encryption = EP.methodToName[method] || null;
-      return { ssid, encryption, method, supported: Object.keys(EP.encryptionMap) };
+      return { ssid, encryption, method, txpower, supported: Object.keys(EP.encryptionMap) };
+    }
+
+    // ═══ setTxPower — قوة البث (0=100% … 4=10%) ═══
+    async setTxPower(level) {
+      const lvl = Number(level);
+      if (!Number.isInteger(lvl) || lvl < 0 || lvl > 4) {
+        throw new Error('مستوى غير مدعوم (0-4)');
+      }
+      const page = await this._req(EP.wifi.basicPage);
+      const body = form({
+        [EP.basicFields.ssid]: field(page.body, 'ssid') || '',
+        [EP.basicFields.band]: field(page.body, 'band') || '10',
+        [EP.basicFields.mode]: field(page.body, 'mode') || '0',
+        [EP.basicFields.chanwid]: field(page.body, 'chanwid') || '2',
+        [EP.basicFields.chan]: field(page.body, 'chan') || '0',
+        [EP.basicFields.txpower]: String(lvl),
+        [EP.basicFields.basicrates]: '0',
+        [EP.basicFields.operrates]: '0',
+        [EP.basicFields.submit]: 'Send',
+      });
+      await this._req(EP.wifi.setupForm, { method: 'POST', body });
+      await this._sleep(3000);
+      return { txpower: lvl };
     }
 
     _readMethodSmart(html) {

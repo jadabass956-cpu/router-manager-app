@@ -311,6 +311,18 @@
       try { return jsonResponse(await withRouter((d) => d.getWifiSettings())); }
       catch (e) { return errorResponse('ROUTER_UNREACHABLE', e.message, 502); }
     },
+    'PUT /api/wifi/txpower': async (params, body) => {
+      try {
+        const level = Number(body.level);
+        if (!Number.isInteger(level) || level < 0 || level > 4) {
+          return errorResponse('BAD_REQUEST', 'مستوى غير مدعوم (0-4)');
+        }
+        const r = await withRouter((d) => d.setTxPower(level));
+        return jsonResponse({ ok: true, ...r });
+      } catch (e) {
+        return errorResponse('APPLY_FAILED', e.message);
+      }
+    },
     'PUT /api/wifi/security': async (params, body) => {
       try {
         const encryption = String(body.encryption || '').trim();
