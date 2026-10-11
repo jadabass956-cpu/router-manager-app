@@ -911,7 +911,7 @@ tailwind.config = {
   <div class="w-full max-w-md bg-white dark:bg-gray-800 rounded-2xl p-5 animate-slide-up">
     <h3 class="font-bold mb-1">إعادة تسمية الجهاز</h3>
     <p class="text-xs text-gray-500 mb-3 font-mono" dir="ltr" x-text="renameModal.mac"></p>
-    <input type="text" x-model="renameModal.name" placeholder="اسم الجهاز" maxlength="40" @keydown.enter="saveName()" class="w-full px-3 py-2.5 rounded-lg bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 focus:border-primary outline-none text-sm mb-3" />
+    <input type="text" id="rename-input" x-model="renameModal.name" placeholder="اسم الجهاز" maxlength="40" @keyup.enter="saveName()" class="w-full px-3 py-2.5 rounded-lg bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 focus:border-primary outline-none text-sm mb-3" />
     <div class="flex gap-2">
       <button @click="renameModal.open = false" class="flex-1 py-2.5 rounded-lg bg-gray-100 dark:bg-gray-700 text-sm font-medium">إلغاء</button>
       <button @click="saveName()" class="flex-1 py-2.5 rounded-lg bg-primary text-white text-sm font-medium">حفظ</button>
@@ -1944,8 +1944,13 @@ function app() {
     },
     async saveName() {
       const mac = this.renameModal.mac;
-      const name = (this.renameModal.name || '').trim();
-      console.log('[saveName] mac="' + mac + '" name="' + name + '" nameLen=' + name.length);
+      // اقرأ من DOM مباشرة (موثوق أكثر من x-model مع Enter)
+      const inputEl = document.getElementById('rename-input');
+      const domValue = inputEl ? inputEl.value : '';
+      const modelValue = this.renameModal.name || '';
+      // استخدم الأطول (لو Alpine تأخر في التحديث)
+      const name = ((domValue.length >= modelValue.length) ? domValue : modelValue).trim();
+      console.log('[saveName] mac="' + mac + '" modelName="' + modelValue + '" domName="' + domValue + '" final="' + name + '"');
       try {
         const r = await this.api('/api/devices/' + encodeURIComponent(mac) + '/name', {
           method: 'PUT',

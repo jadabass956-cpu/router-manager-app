@@ -209,8 +209,8 @@
       for (let i = 0; i < n; i++) s += chars[Math.floor(Math.random() * chars.length)];
       return s;
     }
-    const newRO = 'ro_' + randStr(10);
-    const newRW = 'rw_' + randStr(10);
+    const newRO = 'MonRO' + randStr(8);   // بدون رموز — الراوتر يرفض _
+    const newRW = 'MonRW' + randStr(8);
 
     // نسجل القيم الجديدة في localStorage للمستخدم
     window.appStore.set('snmp-communities', { ro: newRO, rw: newRW, at: Date.now() });
