@@ -587,18 +587,43 @@
       const method = map[encryption];
       if (method === undefined) throw new Error('نوع تشفير غير مدعوم: ' + encryption);
 
-      const body = form({
-        [EP.securityFields.method]: String(method),
-        [EP.securityFields.pskFormat]: '0',
-        [EP.securityFields.pskValue]: cleanPass,
-        [EP.securityFields.wpaAuth]: '1',
-        [EP.securityFields.wpaSSID]: '0',
-        [EP.securityFields.checkWPS2]: '1',
-        [EP.securityFields.submit]: 'Send',
-      });
+      const isWep = encryption === 'WEP';
+      const isNone = encryption === 'None';
+
+      let body;
+      if (isNone) {
+        body = form({
+          method: String(method),
+          'submit.htm?wlwpa.htm': 'Send',
+        });
+      } else if (isWep) {
+        body = form({
+          method: String(method),
+          wepKeyLen: '2',
+          pskFormat: '1',
+          pskValue: cleanPass,
+          'submit.htm?wlwpa.htm': 'Send',
+        });
+      } else {
+        // WPA/WPA2/WPA3 Personal — القيم الصحيحة
+        // wpaAuth: 1=Enterprise, 2=Personal
+        body = form({
+          method: String(method),
+          pskFormat: '0',
+          pskValue: cleanPass,
+          wpaAuth: '2',
+          wpaSSID: '0',
+          checkWPS2: '1',
+          ieee80211w: '1',
+          sha256: '0',
+          'submit.htm?wlwpa.htm': 'Send',
+        });
+      }
+
+      console.log('[setSecurity] POST:', body);
 
       await this._req(EP.wifi.securityForm, { method: 'POST', body });
-      await this._sleep(3000);
+      await this._sleep(5000);
 
       return { encryption: encryption, passwordSet: true };
     }
