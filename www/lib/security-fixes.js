@@ -103,142 +103,152 @@
 
   // ═══ DDNS ═══
   async function fixDDNS(router) {
-    // نحتاج إرسالين:
-    // 1) حذف الحساب (delacc=Remove)
-    // 2) حفظ بدون enable (يعطّل الخدمة)
-
-    // ── الأول: احذف الحساب ──
     const page1 = await router._req('/ddns.htm');
     const html1 = page1.body;
 
     let ddnsProv = '0';
     let iface = '13';
-    let hostname = '';
 
-    const provSel = html1.match(/<select[^>]*name=["']?ddnsProv["']?[^>]*>([\s\S]*?)<\/select>/i);
+    const provSel = html1.match(/<select[^>]*name=["\x27]?ddnsProv["\x27]?[^>]*>([\s\S]*?)<\/select>/i);
     if (provSel) {
-      const o = provSel[1].match(/<option[^>]*value=["']?([^"'\s>]*)["']?[^>]*selected/i);
+      const o = provSel[1].match(/<option[^>]*value=["\x27]?([^"\x27\s>]*)["\x27]?[^>]*selected/i);
       if (o) ddnsProv = o[1];
     }
-    const ifaceSel = html1.match(/<select[^>]*name=["']?interface["']?[^>]*>([\s\S]*?)<\/select>/i);
+    const ifaceSel = html1.match(/<select[^>]*name=["\x27]?interface["\x27]?[^>]*>([\s\S]*?)<\/select>/i);
     if (ifaceSel) {
-      const o = ifaceSel[1].match(/<option[^>]*value=["']?([^"'\s>]*)["']?[^>]*selected/i);
+      const o = ifaceSel[1].match(/<option[^>]*value=["\x27]?([^"\x27\s>]*)["\x27]?[^>]*selected/i);
       if (o) iface = o[1];
     }
-    const hostM = html1.match(/<input[^>]*name=["']?hostname["']?[^>]*value=["']?([^"'\s>]*)/i);
-    if (hostM) hostname = hostM[1];
+    console.log('[fix-ddns] prov:', ddnsProv, '| iface:', iface);
 
-    console.log('[fix-ddns] hostname:', hostname, '| prov:', ddnsProv, '| iface:', iface);
+    // ═══ نجرب عدة صيغ بالترتيب ═══
+    const attempts = [
+      {
+        label: 'no-enable',
+        fields: [
+          ['ddnsProv', ddnsProv], ['interface', iface],
+          ['hostname', ''], ['username', ''], ['password', ''],
+          ['email', ''], ['key', ''],
+          ['submit.htm?ddns.htm', 'Send'],
+        ],
+      },
+      {
+        label: 'enable=0',
+        fields: [
+          ['ddnsProv', ddnsProv], ['interface', iface],
+          ['hostname', ''], ['enable', '0'], ['username', ''], ['password', ''],
+          ['email', ''], ['key', ''],
+          ['submit.htm?ddns.htm', 'Send'],
+        ],
+      },
+      {
+        label: 'enable=off',
+        fields: [
+          ['ddnsProv', ddnsProv], ['interface', iface],
+          ['hostname', ''], ['enable', 'off'], ['username', ''], ['password', ''],
+          ['email', ''], ['key', ''],
+          ['submit.htm?ddns.htm', 'Send'],
+        ],
+      },
+      {
+        label: 'enable= (empty)',
+        fields: [
+          ['ddnsProv', ddnsProv], ['interface', iface],
+          ['hostname', ''], ['enable', ''], ['username', ''], ['password', ''],
+          ['email', ''], ['key', ''],
+          ['submit.htm?ddns.htm', 'Send'],
+        ],
+      },
+      {
+        label: 'delacc with hostname',
+        fields: [
+          ['ddnsProv', ddnsProv], ['interface', iface],
+          ['hostname', ''], ['enable', 'off'], ['username', ''], ['password', ''],
+          ['email', ''], ['key', ''],
+          ['delacc', 'Remove'],
+          ['submit.htm?ddns.htm', 'Send'],
+        ],
+      },
+    ];
 
-    // POST 1: احذف الحساب
-    const body1 = [
-      enc('ddnsProv', ddnsProv),
-      enc('interface', iface),
-      enc('hostname', hostname),
-      enc('username', ''),
-      enc('password', ''),
-      enc('email', ''),
-      enc('key', ''),
-      enc('delacc', 'Remove'),
-      enc('submit.htm?ddns.htm', 'Send'),
-    ].join('&');
-
-    console.log('[fix-ddns] POST 1 (delete):', body1);
-    try {
-      await router._req('/form2Ddns.cgi', { method: 'POST', body: body1 });
-    } catch (e) {
-      console.log('[fix-ddns] POST 1 err:', e.message);
-    }
-    await sleep(5000);
-
-    // POST 2: عطّل enable (لا نرسل الحقل)
-    try { await router.login(); } catch (e) {}
-    const body2 = [
-      enc('ddnsProv', ddnsProv),
-      enc('interface', iface),
-      enc('hostname', ''),
-      enc('username', ''),
-      enc('password', ''),
-      enc('email', ''),
-      enc('key', ''),
-      // ⚠️ لا نرسل enable → checkbox unchecked → معطّل
-      enc('submit.htm?ddns.htm', 'Send'),
-    ].join('&');
-
-    console.log('[fix-ddns] POST 2 (disable):', body2);
-    try {
-      await router._req('/form2Ddns.cgi', { method: 'POST', body: body2 });
-    } catch (e) {
-      console.log('[fix-ddns] POST 2 err:', e.message);
-    }
-    await sleep(8000);
-
-    // تحقق
-    for (let i = 0; i < 3; i++) {
+    for (const attempt of attempts) {
+      const body = attempt.fields.map(([k, v]) => encodeURIComponent(k) + '=' + encodeURIComponent(v)).join('&');
+      console.log('[fix-ddns] try', attempt.label, ':', body);
+      try { await router._req('/form2Ddns.cgi', { method: 'POST', body }); } catch (e) {
+        console.log('[fix-ddns] err:', e.message);
+      }
+      await sleep(8000);
       try { await router.login(); } catch (e) {}
       try {
         const after = await router._req('/ddns.htm');
-        const m = after.body.match(/<input[^>]*name=["']?enable["']?[^>]*>/i);
+        const m = after.body.match(/<input[^>]*name=["\x27]?enable["\x27]?[^>]*>/i);
         const isEnabled = m && /\schecked/i.test(m[0]);
-        const hnM = after.body.match(/<input[^>]*name=["']?hostname["']?[^>]*value=["']?([^"'\s>]*)/i);
-        const curHostname = hnM ? hnM[1] : '';
-        console.log('[fix-ddns] attempt ' + (i+1) + ': enable =', isEnabled, '| hostname = "' + curHostname + '"');
-        if (!isEnabled) return { ok: true };
+        console.log('[fix-ddns]', attempt.label, '→ enable =', isEnabled);
+        if (!isEnabled) return { ok: true, method: attempt.label };
       } catch (e) {
-        console.log('[fix-ddns] err:', e.message);
+        console.log('[fix-ddns] verify err:', e.message);
       }
-      await sleep(3000);
     }
-    return { ok: false, reason: 'DDNS لم يُغلق' };
+    return { ok: false, reason: 'الراوتر رفض كل الصيغ' };
   }
 
 
 
+
+
   // ═══ SNMP (تغيير كلمات المجتمع) ═══
+  // مساعد: يقرأ قيمة حقل مع دعم newline بعد =
+  function readValue(html, name) {
+    const tagRe = new RegExp('<input[^>]*name\\s*=\\s*["\x27]?' + name + '["\x27]?[^>]*>', 'i');
+    const tag = html.match(tagRe);
+    if (!tag) return null;
+    const v = tag[0].match(/value\s*=\s*["\x27]?([^"\x27\s>]*)/i);
+    return v ? v[1].trim() : '';
+  }
+
   async function fixSNMP(router) {
     const page = await router._req('/snmp.htm');
     const html = page.body;
 
-    // استخرج الحقول الحالية
-    const sysName = (html.match(/name=["']?snmpSysName["']?[^>]*value=["']?([^"'\s>]*)/i) || [])[1] || 'Router';
+    // اقرأ الحقول الحالية
+    const sysName = readValue(html, 'snmpSysName') || 'AP';
+    const sysContact = readValue(html, 'snmpSysContact') || '';
+    const sysLocation = readValue(html, 'snmpSysLocation') || '';
+    const trapIp = readValue(html, 'snmpTrapIpAddr') || '';
 
-    // كلمات مجتمع قوية عشوائية
+    // كلمات مجتمع جديدة
     const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
-    function randStr(n) {
-      let s = '';
-      for (let i = 0; i < n; i++) s += chars[Math.floor(Math.random() * chars.length)];
-      return s;
-    }
-    const newRO = 'MonRO' + randStr(8);   // بدون رموز — الراوتر يرفض _
+    const randStr = (n) => Array.from({length: n}, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+    const newRO = 'MonRO' + randStr(8);
     const newRW = 'MonRW' + randStr(8);
 
-    // نسجل القيم الجديدة في localStorage للمستخدم
     window.appStore.set('snmp-communities', { ro: newRO, rw: newRW, at: Date.now() });
 
-    // لا نرسل snmpEnabled (يعني معطّل)
-    const body = [
-      enc('snmpSysName', sysName),
-      enc('snmpSysContact', ''),
-      enc('snmpSysLocation', ''),
-      enc('snmpTrapIpAddr', ''),
-      enc('snmpCommunityRO', newRO),
-      enc('snmpCommunityRW', newRW),
-      enc('save', 'Apply Changes'),
-      enc('submit.htm?snmp.htm', 'Send'),
-    ].join('&');
+    // ⚠️ ترتيب الحقول مطابق لـ HTML (بدون snmpEnabled = معطّل)
+    const fields = [
+      ['snmpSysContact', sysContact],
+      ['snmpSysName', sysName],
+      ['snmpSysLocation', sysLocation],
+      ['snmpTrapIpAddr', trapIp],
+      ['snmpCommunityRO', newRO],
+      ['snmpCommunityRW', newRW],
+      ['save', 'Apply Changes'],
+      ['submit.htm?snmp.htm', 'Send'],
+    ];
 
+    const body = fields.map(([k, v]) => encodeURIComponent(k) + '=' + encodeURIComponent(v)).join('&');
     console.log('[fix-snmp] POST:', body);
+
     await router._req('/form2Snmp.cgi', { method: 'POST', body });
     await sleep(8000);
 
-    // تحقق — كلمة المجتمع الجديدة موجودة؟
+    // تحقق مع regex صحيح
     for (let i = 0; i < 3; i++) {
       try { await router.login(); } catch (e) {}
       try {
         const after = await router._req('/snmp.htm');
-        const roMatch = after.body.match(/name=["']?snmpCommunityRO["']?[^>]*value=["']?([^"'\s>]*)/i);
-        const currentRO = roMatch ? roMatch[1] : '';
-        console.log('[fix-snmp] attempt ' + (i+1) + ': currentRO =', currentRO);
+        const currentRO = readValue(after.body, 'snmpCommunityRO');
+        console.log('[fix-snmp] attempt ' + (i+1) + ': currentRO =', JSON.stringify(currentRO));
         if (currentRO === newRO) return { ok: true, ro: newRO, rw: newRW };
       } catch (e) {
         console.log('[fix-snmp] err:', e.message);
@@ -247,6 +257,8 @@
     }
     return { ok: false, reason: 'SNMP لم يحفظ' };
   }
+
+
 
   async function applyAllFixes(fixNames) {
     const creds = window.appStore.getCredentials();
