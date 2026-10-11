@@ -103,30 +103,37 @@
 
   // ═══ DDNS ═══
   async function fixDDNS(router) {
-    // نرسل delacc لحذف الحساب (يعطل DDNS)
-    const page = await router._req('/ddns.htm');
-    const html = page.body;
+    // نحتاج إرسالين:
+    // 1) حذف الحساب (delacc=Remove)
+    // 2) حفظ بدون enable (يعطّل الخدمة)
 
-    // استخرج قيم الفورم الحالية
-    const hostname = (html.match(/name=["']?hostname["']?[^>]*value=["']?([^"'\s>]*)/i) || [])[1] || '';
-    const ddnsProv = (html.match(/<select[^>]*name=["']?ddnsProv["']?[^>]*>([\s\S]*?)<\/select>/i) || [])[1];
-    let provValue = '0';
-    if (ddnsProv) {
-      const sel = ddnsProv.match(/<option[^>]*value=["']?([^"'\s>]*)["']?[^>]*selected/i);
-      if (sel) provValue = sel[1];
+    // ── الأول: احذف الحساب ──
+    const page1 = await router._req('/ddns.htm');
+    const html1 = page1.body;
+
+    let ddnsProv = '0';
+    let iface = '13';
+    let hostname = '';
+
+    const provSel = html1.match(/<select[^>]*name=["']?ddnsProv["']?[^>]*>([\s\S]*?)<\/select>/i);
+    if (provSel) {
+      const o = provSel[1].match(/<option[^>]*value=["']?([^"'\s>]*)["']?[^>]*selected/i);
+      if (o) ddnsProv = o[1];
     }
-
-    const iface = (html.match(/<select[^>]*name=["']?interface["']?[^>]*>([\s\S]*?)<\/select>/i) || [])[1];
-    let ifaceValue = '13';
-    if (iface) {
-      const sel = iface.match(/<option[^>]*value=["']?([^"'\s>]*)["']?[^>]*selected/i);
-      if (sel) ifaceValue = sel[1];
+    const ifaceSel = html1.match(/<select[^>]*name=["']?interface["']?[^>]*>([\s\S]*?)<\/select>/i);
+    if (ifaceSel) {
+      const o = ifaceSel[1].match(/<option[^>]*value=["']?([^"'\s>]*)["']?[^>]*selected/i);
+      if (o) iface = o[1];
     }
+    const hostM = html1.match(/<input[^>]*name=["']?hostname["']?[^>]*value=["']?([^"'\s>]*)/i);
+    if (hostM) hostname = hostM[1];
 
-    // POST بحذف الحساب
-    const body = [
-      enc('ddnsProv', provValue),
-      enc('interface', ifaceValue),
+    console.log('[fix-ddns] hostname:', hostname, '| prov:', ddnsProv, '| iface:', iface);
+
+    // POST 1: احذف الحساب
+    const body1 = [
+      enc('ddnsProv', ddnsProv),
+      enc('interface', iface),
       enc('hostname', hostname),
       enc('username', ''),
       enc('password', ''),
@@ -136,9 +143,35 @@
       enc('submit.htm?ddns.htm', 'Send'),
     ].join('&');
 
-    console.log('[fix-ddns] POST:', body);
-    await router._req('/form2Ddns.cgi', { method: 'POST', body });
-    await sleep(10000);
+    console.log('[fix-ddns] POST 1 (delete):', body1);
+    try {
+      await router._req('/form2Ddns.cgi', { method: 'POST', body: body1 });
+    } catch (e) {
+      console.log('[fix-ddns] POST 1 err:', e.message);
+    }
+    await sleep(5000);
+
+    // POST 2: عطّل enable (لا نرسل الحقل)
+    try { await router.login(); } catch (e) {}
+    const body2 = [
+      enc('ddnsProv', ddnsProv),
+      enc('interface', iface),
+      enc('hostname', ''),
+      enc('username', ''),
+      enc('password', ''),
+      enc('email', ''),
+      enc('key', ''),
+      // ⚠️ لا نرسل enable → checkbox unchecked → معطّل
+      enc('submit.htm?ddns.htm', 'Send'),
+    ].join('&');
+
+    console.log('[fix-ddns] POST 2 (disable):', body2);
+    try {
+      await router._req('/form2Ddns.cgi', { method: 'POST', body: body2 });
+    } catch (e) {
+      console.log('[fix-ddns] POST 2 err:', e.message);
+    }
+    await sleep(8000);
 
     // تحقق
     for (let i = 0; i < 3; i++) {
@@ -147,7 +180,9 @@
         const after = await router._req('/ddns.htm');
         const m = after.body.match(/<input[^>]*name=["']?enable["']?[^>]*>/i);
         const isEnabled = m && /\schecked/i.test(m[0]);
-        console.log('[fix-ddns] attempt ' + (i+1) + ': enabled =', isEnabled);
+        const hnM = after.body.match(/<input[^>]*name=["']?hostname["']?[^>]*value=["']?([^"'\s>]*)/i);
+        const curHostname = hnM ? hnM[1] : '';
+        console.log('[fix-ddns] attempt ' + (i+1) + ': enable =', isEnabled, '| hostname = "' + curHostname + '"');
         if (!isEnabled) return { ok: true };
       } catch (e) {
         console.log('[fix-ddns] err:', e.message);
@@ -156,6 +191,8 @@
     }
     return { ok: false, reason: 'DDNS لم يُغلق' };
   }
+
+
 
   // ═══ SNMP (تغيير كلمات المجتمع) ═══
   async function fixSNMP(router) {

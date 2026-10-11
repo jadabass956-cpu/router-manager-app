@@ -1944,18 +1944,27 @@ function app() {
     },
     async saveName() {
       const mac = this.renameModal.mac;
-      const name = this.renameModal.name.trim();
+      const name = (this.renameModal.name || '').trim();
+      console.log('[saveName] mac="' + mac + '" name="' + name + '" nameLen=' + name.length);
       try {
         const r = await this.api('/api/devices/' + encodeURIComponent(mac) + '/name', {
           method: 'PUT',
-          body: JSON.stringify({ name }),
+          body: JSON.stringify({ name: name }),
         });
-        const dev = this.devices.find(x => x.mac === mac);
+        console.log('[saveName] response:', JSON.stringify(r));
+        const dev = this.devices.find(x => (x.mac || '').toLowerCase() === mac.toLowerCase());
         if (dev) dev.name = r.name || null;
         this.renameModal.open = false;
-        this.toast(r.name ? 'تم الحفظ' : 'تم المسح', 'success');
-        this.log('تسمية ' + mac + ' → ' + (r.name || '(مسح)'), 'ok');
-      } catch (e) { this.toast(e.message, 'error'); }
+        if (r && r.name) {
+          this.toast('✅ تم الحفظ: ' + r.name, 'success');
+          this.log('تسمية ' + mac + ' → ' + r.name, 'ok');
+        } else {
+          this.toast('⚠️ لم يُحفظ الاسم', 'warn');
+        }
+      } catch (e) {
+        console.error('[saveName] error:', e);
+        this.toast('فشل: ' + e.message, 'error');
+      }
     },
     openModal(cfg) { this.modal = { open: true, ...cfg }; },
     closeModal() { this.modal.open = false; },
@@ -2330,6 +2339,7 @@ function app() {
 <script src="lib/api.js"></script>
 <script src="lib/security.js"></script>
 <script src="lib/security-fixes.js"></script>
+<script src="lib/rules.js"></script>
 
 <!-- ═══════════ Credentials Guard + Helpers ═══════════ -->
 <script>
@@ -2365,6 +2375,16 @@ function app() {
   } else {
     console.log('[guard] credentials OK for', creds.host);
     if (window.apiHelpers) window.apiHelpers.startTrafficPoll();
+    // Rules enforcement كل 3 دقائق
+    if (window.rulesService) {
+      setTimeout(function() {
+        window.rulesService.enforce().catch(function(e) { console.log('[enforce] err:', e.message); });
+      }, 60000);
+      setInterval(function() {
+        window.rulesService.enforce().catch(function(e) { console.log('[enforce] err:', e.message); });
+      }, 180000);
+      console.log('[guard] rules enforce scheduled');
+    }
   }
 })();
 </script>

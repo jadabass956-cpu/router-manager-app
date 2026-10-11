@@ -237,13 +237,20 @@
       return jsonResponse(usage);
     },
     'PUT /api/devices/:mac/name': async (params, body) => {
+      console.log('[api-name] params.mac=', params.mac, '| body=', JSON.stringify(body));
       const mac = String(params.mac || '').toLowerCase();
-      if (!/^([0-9a-f]{2}:){5}[0-9a-f]{2}$/.test(mac)) return errorResponse('INVALID_MAC', 'صيغة MAC غير صحيحة');
-      const raw = String(body.name || '').trim().slice(0, 40);
+      if (!/^([0-9a-f]{2}:){5}[0-9a-f]{2}$/.test(mac)) {
+        console.log('[api-name] INVALID_MAC:', mac);
+        return errorResponse('INVALID_MAC', 'صيغة MAC غير صحيحة');
+      }
+      const raw = String((body && body.name) || '').trim().slice(0, 40);
+      console.log('[api-name] raw=', JSON.stringify(raw));
       const names = window.appStore.getNames();
+      console.log('[api-name] before:', JSON.stringify(names));
       if (raw) names[mac] = raw; else delete names[mac];
       window.appStore.setNames(names);
-      return jsonResponse({ mac, name: names[mac] || null });
+      console.log('[api-name] after:', JSON.stringify(names));
+      return jsonResponse({ mac: mac, name: names[mac] || null });
     },
     'DELETE /api/devices/:mac/known': async (params) => {
       const mac = String(params.mac || '').toLowerCase();
@@ -446,7 +453,27 @@
     },
 
     // ── Rules ──
-    'GET /api/rules': async () => jsonResponse({ rules: window.appStore.getRules(), state: window.appStore.getBlockState() }),
+    'GET /api/rules': async () => jsonResponse(window.rulesService.getAll()),
+    'POST /api/rules/:mac/block': async (params, body) => {
+      try {
+        const minutes = Number(body && body.minutes) || 0;
+        const r = await window.rulesService.setTempBlock(params.mac, minutes);
+        return jsonResponse(r);
+      } catch (e) { return errorResponse('BLOCK_FAILED', e.message, 500); }
+    },
+    'DELETE /api/rules/:mac/block': async (params) => {
+      try {
+        const r = await window.rulesService.clearBlock(params.mac);
+        return jsonResponse(r);
+      } catch (e) { return errorResponse('UNBLOCK_FAILED', e.message, 500); }
+    },
+    'PUT /api/rules/:mac/limit': async (params, body) => {
+      try {
+        const mb = Number(body && body.mb) || 0;
+        const r = await window.rulesService.setDailyLimit(params.mac, mb);
+        return jsonResponse(r);
+      } catch (e) { return errorResponse('LIMIT_FAILED', e.message, 500); }
+    },
 
     // ── Credentials ──
     'GET /api/settings/credentials': async () => {
