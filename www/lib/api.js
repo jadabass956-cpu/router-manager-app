@@ -423,8 +423,23 @@
     },
     'POST /api/security/fix/:name': async (params) => {
       try {
-        const r = await window.security.applyFix(params.name);
-        return jsonResponse({ ok: true, ...r });
+        const name = params.name;
+        const creds = window.appStore.getCredentials();
+        if (!creds) throw new Error('بيانات الراوتر غير محفوظة');
+        const router = new window.TPLinkRouter(creds);
+        await router.login();
+        let r;
+        try {
+          if (name === 'wps' && window.securityFixes) r = await window.securityFixes.fixWPS(router);
+          else if (name === 'upnp' && window.securityFixes) r = await window.securityFixes.fixUPnP(router);
+          else if (name === 'ddns' && window.securityFixes) r = await window.securityFixes.fixDDNS(router);
+          else if (name === 'snmp' && window.securityFixes) r = await window.securityFixes.fixSNMP(router);
+          else if (window.security && window.security.applyFix) r = await window.security.applyFix(name);
+          else throw new Error('إصلاح غير مدعوم: ' + name);
+        } finally {
+          try { await router.logout(); } catch (e) {}
+        }
+        return jsonResponse({ ok: !!(r && r.ok), ...(r || {}) });
       } catch (e) {
         return errorResponse('FIX_FAILED', e.message, 500);
       }

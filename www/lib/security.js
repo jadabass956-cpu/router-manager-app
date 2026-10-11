@@ -219,9 +219,12 @@
         if (hasWeakCommunity) {
           return {
             id: 'snmp',
-            severity: SEV.MEDIUM,
-            title: 'SNMP معطّل — لكن كلمة المجتمع ضعيفة',
-            description: 'SNMP مغلق حالياً، لكن كلمة المجتمع "' + communityRO + '" خطيرة لو تم تفعيله. يُنصح بتغييرها.',
+            severity: SEV.LOW,
+            title: 'SNMP معطّل — كلمة مجتمع افتراضية',
+            description: 'SNMP مغلق حالياً (آمن). كلمة المجتمع "' + communityRO + '" افتراضية — تغييرها إجراء وقائي.',
+            fixable: true,
+            fixLabel: 'تغيير كلمات المجتمع',
+            fixAction: { url: '/api/security/fix/snmp' },
           };
         }
         return { id: 'snmp', severity: SEV.OK, title: 'SNMP معطّل', description: 'البروتوكول مغلق — لا خطر.' };
@@ -265,6 +268,9 @@
         severity: SEV.MEDIUM,
         title: 'DDNS مفعّل',
         description: 'DDNS يكشف عنوان IP المنزل للإنترنت عبر اسم نطاق' + (hostname ? ' (' + hostname + ')' : '') + '. استخدمه فقط إذا كنت تحتاجه.',
+        fixable: true,
+        fixLabel: 'إغلاق DDNS',
+        fixAction: { url: '/api/security/fix/ddns' },
       };
     } catch (e) {
       return { id: 'ddns', severity: SEV.LOW, title: 'تعذر فحص DDNS', description: e.message };
