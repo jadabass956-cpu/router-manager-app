@@ -299,56 +299,77 @@
 
 
   async function checkWiFiEncryption(router) {
-    try {
-      const wifi = await router.getWifiSettings();
-      const enc = wifi.encryption || 'None';
+    // نحاول 3 مرات — الراوتر قد يكون مشغولاً
+    let lastError = null;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        if (attempt > 0) {
+          console.log('[checkWifiEnc] retry ' + attempt);
+          await new Promise(r => setTimeout(r, 2000));
+          try { await router.login(); } catch (e) {}
+        }
+        const wifi = await router.getWifiSettings();
+        const enc = wifi.encryption || 'None';
 
-      if (enc === 'None') {
+        if (enc === 'None') {
+          return {
+            id: 'wifi-enc',
+            severity: SEV.CRITICAL,
+            title: '🚨 الشبكة بدون تشفير!',
+            description: 'أي شخص قريب من المنزل يمكنه الدخول لشبكتك. فعّل WPA2/WPA3 فوراً.',
+            fixable: true,
+            fixLabel: 'الانتقال لإعدادات الواي فاي',
+            fixAction: { navigate: 'wifi' },
+          };
+        }
+
+        if (enc === 'WEP') {
+          return {
+            id: 'wifi-enc',
+            severity: SEV.CRITICAL,
+            title: '🚨 تشفير WEP مكسور!',
+            description: 'WEP يمكن كسره في أقل من دقيقة. غيّر إلى WPA2-AES أو WPA3.',
+            fixable: true,
+            fixLabel: 'الانتقال لإعدادات الواي فاي',
+            fixAction: { navigate: 'wifi' },
+          };
+        }
+
+        if (enc.startsWith('WPA-')) {
+          return {
+            id: 'wifi-enc',
+            severity: SEV.HIGH,
+            title: 'WPA (TKIP) قديم',
+            description: 'WPA الأصلي ضعيف. يُنصح بالترقية إلى WPA2-AES أو WPA3.',
+            fixable: true,
+            fixLabel: 'الانتقال لإعدادات الواي فاي',
+            fixAction: { navigate: 'wifi' },
+          };
+        }
+
+        // WPA2/WPA3 = آمن
         return {
           id: 'wifi-enc',
-          severity: SEV.CRITICAL,
-          title: '🚨 الشبكة بدون تشفير!',
-          description: 'أي شخص قريب من المنزل يمكنه الدخول لشبكتك واستخدام الإنترنت. فعّل WPA2/WPA3 فوراً.',
-          fixable: true,
-          fixLabel: 'الانتقال إلى الإعدادات',
-          fixAction: { navigate: 'wifi' },
+          severity: SEV.OK,
+          title: 'تشفير قوي: ' + enc,
+          description: 'شبكة WiFi محمية بتشفير حديث.',
         };
+      } catch (e) {
+        lastError = e;
+        console.log('[checkWifiEnc] attempt ' + attempt + ' failed:', e.message);
       }
-
-      if (enc === 'WEP') {
-        return {
-          id: 'wifi-enc',
-          severity: SEV.CRITICAL,
-          title: '🚨 تشفير WEP مكسور!',
-          description: 'WEP يمكن كسره في أقل من دقيقة بأدوات مجانية. غيّر إلى WPA2/WPA3 فوراً.',
-          fixable: true,
-          fixLabel: 'الانتقال إلى الإعدادات',
-          fixAction: { navigate: 'wifi' },
-        };
-      }
-
-      if (enc.startsWith('WPA-')) {
-        return {
-          id: 'wifi-enc',
-          severity: SEV.HIGH,
-          title: 'WPA (TKIP) قديم',
-          description: 'WPA الأصلي قديم وضعيف. يُنصح بالترقية إلى WPA2-AES أو WPA3.',
-          fixable: true,
-          fixLabel: 'الانتقال إلى الإعدادات',
-          fixAction: { navigate: 'wifi' },
-        };
-      }
-
-      return {
-        id: 'wifi-enc',
-        severity: SEV.OK,
-        title: 'تشفير قوي: ' + enc,
-        description: 'شبكة WiFi محمية بتشفير حديث.',
-      };
-    } catch (e) {
-      return { id: 'wifi-enc', severity: SEV.LOW, title: 'تعذر فحص التشفير', description: e.message };
     }
+
+    // فشلت كل المحاولات — رسالة لطيفة بدل تقنية
+    return {
+      id: 'wifi-enc',
+      severity: SEV.LOW,
+      title: 'تعذر فحص التشفير',
+      description: 'لم نتمكن من الاتصال بالراوتر خلال الفحص.\n\nجرّب "إعادة الفحص" بعد لحظة — الراوتر يحتاج راحة بين الفحوصات.',
+    };
   }
+
+
 
   async function checkMacFilter(router) {
     try {
