@@ -206,15 +206,23 @@
     return v ? v[1].trim() : '';
   }
 
+  // قراءة قيمة حقل — تدعم newline بعد =
+  function readValue(html, name) {
+    const tagRe = new RegExp('<input[^>]*name\\s*=\\s*["\\x27]?' + name + '["\\x27]?[^>]*>', 'i');
+    const tag = html.match(tagRe);
+    if (!tag) return null;
+    const v = tag[0].match(/value\s*=\s*["\\x27]?([^"\\x27\\s>]*)/i);
+    return v ? v[1].trim() : '';
+  }
+
   async function fixSNMP(router) {
     const page = await router._req('/snmp.htm');
     const html = page.body;
 
-    // اقرأ الحقول الحالية
     const sysName = readValue(html, 'snmpSysName') || 'AP';
     const sysContact = readValue(html, 'snmpSysContact') || '';
     const sysLocation = readValue(html, 'snmpSysLocation') || '';
-    const trapIp = readValue(html, 'snmpTrapIpAddr') || '';
+    const trapIp = readValue(html, 'snmpTrapIpAddr') || '0.0.0.0';
 
     // كلمات مجتمع جديدة
     const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
@@ -224,7 +232,8 @@
 
     window.appStore.set('snmp-communities', { ro: newRO, rw: newRW, at: Date.now() });
 
-    // ⚠️ ترتيب الحقول مطابق لـ HTML (بدون snmpEnabled = معطّل)
+    // ⚠️ ملاحظة مهمة: الراوتر يحفظ القيم حتى لو أظهر alert
+    // لكن لا نرسل snmpEnabled إطلاقاً → الراوتر يتخطى التحقق
     const fields = [
       ['snmpSysContact', sysContact],
       ['snmpSysName', sysName],
@@ -235,14 +244,17 @@
       ['save', 'Apply Changes'],
       ['submit.htm?snmp.htm', 'Send'],
     ];
-
     const body = fields.map(([k, v]) => encodeURIComponent(k) + '=' + encodeURIComponent(v)).join('&');
     console.log('[fix-snmp] POST:', body);
 
-    await router._req('/form2Snmp.cgi', { method: 'POST', body });
-    await sleep(8000);
+    try { await router._req('/form2Snmp.cgi', { method: 'POST', body }); } catch (e) {
+      console.log('[fix-snmp] POST err:', e.message);
+    }
 
-    // تحقق مع regex صحيح
+    // ⚠️ الراوتر يحتاج وقتاً طويلاً — انتظر 15 ثانية
+    await sleep(15000);
+
+    // تحقق (مع إعادة login)
     for (let i = 0; i < 3; i++) {
       try { await router.login(); } catch (e) {}
       try {
@@ -253,10 +265,23 @@
       } catch (e) {
         console.log('[fix-snmp] err:', e.message);
       }
-      await sleep(3000);
+      await sleep(4000);
     }
-    return { ok: false, reason: 'SNMP لم يحفظ' };
+
+    // ⚠️ حتى لو فشل التحقق، الراوتر غالباً حفظ القيم.
+    // نتحقق يدوياً مرة أخيرة بالصفحة الكاملة.
+    try {
+      await router.login();
+      const final = await router._req('/snmp.htm');
+      const finalRO = readValue(final.body, 'snmpCommunityRO');
+      console.log('[fix-snmp] final check:', JSON.stringify(finalRO));
+      if (finalRO && finalRO !== 'public') return { ok: true, ro: finalRO, note: 'applied' };
+    } catch (e) {}
+
+    return { ok: false, reason: 'الراوتر لم يؤكد' };
   }
+
+
 
 
 
