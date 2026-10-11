@@ -800,6 +800,51 @@ tailwind.config = {
     </div>
       <div class="bg-white dark:bg-gray-800 rounded-xl p-4 space-y-3">
         <div class="flex items-center justify-between">
+          <h3 class="font-bold text-sm">MAC جهازي (للحماية)</h3>
+          <span class="text-[10px] px-2 py-0.5 rounded-full font-medium"
+                :class="backendMac ? 'bg-green-100 dark:bg-green-950/50 text-green-700 dark:text-green-400' : 'bg-amber-100 dark:bg-amber-950/50 text-amber-700 dark:text-amber-400'"
+                x-text="backendMac ? 'محمي' : 'غير محدد'"></span>
+        </div>
+
+        <p class="text-[11px] text-gray-500 leading-relaxed">
+          أدخل MAC جهازك الحالي لحماية نفسك من الحظر الذاتي عند تفعيل فلترة MAC.
+        </p>
+
+        <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-3 space-y-2 text-xs">
+          <div class="flex items-center justify-between">
+            <span class="text-gray-500">MAC الحالي</span>
+            <span class="font-mono truncate max-w-[60%] text-left" dir="ltr"
+                  :class="backendMac ? 'text-green-600 dark:text-green-400' : 'text-gray-400'"
+                  x-text="backendMac || '—'"></span>
+          </div>
+          <div x-show="autoDetectedMac && autoDetectedMac !== backendMac" class="flex items-center justify-between">
+            <span class="text-gray-500">المكتشف</span>
+            <span class="font-mono truncate max-w-[60%] text-left text-amber-600 dark:text-amber-400" dir="ltr"
+                  x-text="autoDetectedMac || '—'"></span>
+          </div>
+        </div>
+
+        <div class="flex gap-2">
+          <input type="text" id="backendMacField" x-model="backendMacInput"
+                 placeholder="30:56:96:8e:1b:71"
+                 dir="ltr" maxlength="17"
+                 class="flex-1 px-3 py-2.5 rounded-lg bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 focus:border-primary outline-none text-sm font-mono" />
+          <button @click="saveBackendMac()"
+                  :disabled="savingBackendMac"
+                  class="px-4 py-2.5 rounded-lg bg-primary hover:bg-primary-dark text-white text-sm font-medium disabled:opacity-50">
+            <span x-text="savingBackendMac ? '…' : 'حفظ'"></span>
+          </button>
+        </div>
+
+        <button x-show="autoDetectedMac && autoDetectedMac !== backendMac"
+                @click="backendMacInput = autoDetectedMac; saveBackendMac()"
+                class="w-full py-2 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-medium">
+          ✓ استخدام MAC المكتشف تلقائياً
+        </button>
+      </div>
+
+      <div class="bg-white dark:bg-gray-800 rounded-xl p-4 space-y-3">
+        <div class="flex items-center justify-between">
           <h3 class="font-bold text-sm">بيانات دخول الراوتر</h3>
           <span class="text-[10px] px-2 py-0.5 rounded-full font-medium"
                 :class="credentials.source === 'file' ? 'bg-green-100 dark:bg-green-950/50 text-green-700 dark:text-green-400' : 'bg-gray-100 dark:bg-gray-700 text-gray-500'"
@@ -1398,6 +1443,7 @@ function app() {
       this.loadWan();
       this.loadCalibration();
       this.loadCredentials();
+      this.loadBackendMac();
       this.loadTime();
       this.loadSecurity();
       this.loadPppoe();
@@ -1722,6 +1768,77 @@ function app() {
           this.updateModal.open = true;
         }
       } catch (e) {}
+    },
+    async loadBackendMac() {
+      try {
+        const creds = window.appStore.getCredentials() || {};
+        this.backendMac = creds.backendMac || null;
+        this.backendMacInput = this.backendMac || '';
+        // نحاول اكتشاف MAC الحالي تلقائياً
+        this.detectCurrentMac();
+      } catch (e) {}
+    },
+    async detectCurrentMac() {
+      // نبحث عن جهازنا في قائمة الأجهزة المتصلة:
+      // - الأحدث lastSeen
+      // - أو الذي في traffic.json
+      try {
+        const r = await this.api('/api/devices');
+        const online = (r.devices || []).filter(d => d.online);
+        if (online.length === 0) return;
+        // اختر الأحدث في lastSeen (من traffic)
+        // أبسط: خذ أول جهاز إذا واحد فقط، أو الأول في القائمة
+        // لكن الأفضل: نتحقق من عنوان IP - جهازنا عادة لديه traffic
+        // الحل: استخدم الجهاز الذي في trafficData بـ lastSeen الأحدث
+        const traffic = window.appStore.getTraffic() || {};
+        let best = null;
+        let bestSeen = 0;
+        for (const d of online) {
+          const m = (d.mac || '').toLowerCase();
+          const t = traffic[m];
+          if (t && t.lastSeen && t.lastSeen > bestSeen) {
+            bestSeen = t.lastSeen;
+            best = d.mac;
+          }
+        }
+        // إذا واحد فقط متصل → هو جهازنا
+        if (!best && online.length === 1) best = online[0].mac;
+        if (!best) best = online[0].mac; // fallback
+        this.autoDetectedMac = best;
+      } catch (e) {
+        console.log('[detectCurrentMac] err:', e.message);
+      }
+    },
+    async saveBackendMac() {
+      const input = String(this.backendMacInput || '').trim().toLowerCase();
+      // نتحقق من الصيغة
+      const clean = input.replace(/[^0-9a-f]/g, '');
+      let formatted = '';
+      if (clean.length === 12) {
+        formatted = clean.match(/.{2}/g).join(':');
+      } else if (input === '') {
+        formatted = '';
+      } else {
+        this.toast('صيغة MAC غير صحيحة (مثال: 30:56:96:8e:1b:71)', 'error');
+        return;
+      }
+      this.savingBackendMac = true;
+      try {
+        const creds = window.appStore.getCredentials() || {};
+        creds.backendMac = formatted || null;
+        window.appStore.setCredentials(creds);
+        this.backendMac = formatted || null;
+        if (formatted) {
+          this.toast('✅ تم حفظ MAC جهازك', 'success');
+          this.log('حفظ MAC: ' + formatted, 'ok');
+        } else {
+          this.toast('تم مسح MAC جهازك', 'warn');
+        }
+      } catch (e) {
+        this.toast('فشل الحفظ: ' + e.message, 'error');
+      } finally {
+        this.savingBackendMac = false;
+      }
     },
     async loadCredentials() {
       try {
