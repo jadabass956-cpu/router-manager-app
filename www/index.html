@@ -1430,6 +1430,8 @@ function app() {
     credentials: { host: '', username: '', password: '', source: 'env' },
     update: { current: '', latest: '', minRequired: '', updateAvailable: false, blocked: false, killSwitch: false, forceUpdate: false, message: '', announcement: '', checkedAt: 0, ok: false },
     wifiSec: { encryption: 'WPA2-AES', password: '', advanced: false, showPass: false, saving: false },
+    savingTxPower: false,
+    TX_POWER_LEVELS: [{v:0,n:'100%'},{v:1,n:'80%'},{v:2,n:'50%'},{v:3,n:'25%'},{v:4,n:'10%'}],
     time: { date: { year: 0, month: 1, day: 1, hour: 0, min: 0, sec: 0 }, daylightsaving: 0, ntp: { enabled: false, server1: '', server2: '', interval: 1, timezone: null }, gmtTime: '', loaded: false, editMode: false, edit: {}, saving: false, tzSelected: null, tzSaving: false, ntpSaving: false, syncing: false },
     timezones: { items: [], loaded: false },
     pppoe: { connected: false, entry: null, loaded: false, loading: false },
