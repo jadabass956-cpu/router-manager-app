@@ -41,14 +41,29 @@
     return inputHtml && /\schecked/i.test(inputHtml);
   }
 
-  function isSelectEnabled(html, name) {
-    // يبحث عن radio/checkbox مفحوص
+  function getCheckedValue(html, name) {
+    // يرجع قيمة الـ radio/checkbox المفحوص
     const re = new RegExp('<input[^>]*type\\s*=\\s*["\']?(radio|checkbox)["\']?[^>]*name\\s*=\\s*["\']?' + name + '["\']?[^>]*>', 'gi');
     let m;
     while ((m = re.exec(html)) !== null) {
-      if (/\schecked/i.test(m[0])) return true;
+      if (/\schecked/i.test(m[0])) {
+        const vm = m[0].match(/value\s*=\s*["\']?([^"\'\s>]*)/i);
+        return vm ? vm[1] : '';
+      }
     }
-    return false;
+    return null;
+  }
+
+  function isEnabledByValue(html, name, enabledValues) {
+    // مفعّل فقط إذا كانت القيمة المفحوصة في قائمة القيم المفعّلة
+    const v = getCheckedValue(html, name);
+    if (v === null) return false;
+    return enabledValues.includes(v.toLowerCase());
+  }
+
+  function isSelectEnabled(html, name) {
+    // للـ backward compat — لكن يجب استخدام isEnabledByValue
+    return getCheckedValue(html, name) !== null;
   }
 
   function getInputValue(html, name) {
@@ -104,9 +119,18 @@
 
   async function checkUPnP(router) {
     try {
-      const r = await _reqWithRetry(router, '/upnp.htm');
+      const r = await router._req('/upnp.htm');
       const html = r.body;
-      const enabled = isSelectEnabled(html, 'daemon');
+
+      // 🔍 LOG: نطبع HTML الفعلي
+      const form = html.match(/<form[^>]*name=["']?upnp["']?[^>]*>([\s\S]*?)<\/form>/i);
+      if (form) {
+        const daemons = [...form[1].matchAll(/<input[^>]*name=["']?daemon["']?[^>]*>/gi)].map(m => m[0]);
+        console.log('[checkUPnP] daemon inputs:', JSON.stringify(daemons));
+      }
+
+      const enabled = isEnabledByValue(html, 'daemon', ['1', 'on', 'enable', 'enabled']);
+      console.log('[checkUPnP] enabled:', enabled, '| checkedValue:', getCheckedValue(html, 'daemon'));
 
       if (!enabled) {
         return {
@@ -131,12 +155,14 @@
     }
   }
 
+
+
   async function checkTR069(router) {
     try {
       const r = await _reqWithRetry(router, '/tr069.htm');
       const html = r.body;
 
-      const enabled = isSelectEnabled(html, 'cwmpserverenable');
+      const enabled = isEnabledByValue(html, 'cwmpserverenable', ['1', 'on', 'enable', 'enabled']);
       const url = getInputValue(html, 'cwmpserverurl');
       const user = getInputValue(html, 'cwmpserveruser');
       const port = getInputValue(html, 'cwmpconreqport');
@@ -182,7 +208,7 @@
     try {
       const r = await router._req('/snmp.htm');
       const html = r.body;
-      const enabled = isSelectEnabled(html, 'snmpEnabled');
+      const enabled = isEnabledByValue(html, 'snmpEnabled', ['1', 'on', 'enable', 'enabled']);
       const communityRO = getInputValue(html, 'snmpCommunityRO');
       const communityRW = getInputValue(html, 'snmpCommunityRW');
       const weakCommunities = ['public', 'private', 'admin', 'cisco', 'manager'];
@@ -227,7 +253,7 @@
     try {
       const r = await router._req('/ddns.htm');
       const html = r.body;
-      const enabled = isSelectEnabled(html, 'enable');
+      const enabled = getCheckedValue(html, 'enable') !== null;
       const hostname = getInputValue(html, 'hostname');
 
       if (!enabled) {
