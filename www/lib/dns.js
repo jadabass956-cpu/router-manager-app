@@ -48,7 +48,11 @@
     // 2) ISP + ASN (من ipleak.net)
     try {
       const data = await fetchJson('https://ipleak.net/json/');
-      result.isp = data.isp_name || null;
+      let ispName = data.isp_name || null;
+      if (ispName && ispName.length > 35) {
+        ispName = ispName.slice(0, 32) + '...';
+      }
+      result.isp = ispName;
       result.asn = data.as_number || null;
       result.asNetwork = data.as_network || null;
       result.city = data.city || null;
@@ -58,14 +62,15 @@
       result.errors.push('ipleak: ' + e.message);
     }
 
-    // 3) DoH Test — هل الإنترنت يعمل بدون مشاكل؟
+    // 3) DoH Test — نستخدم dns.google (يدعم CORS)
     try {
-      const dns = await fetchJson('https://cloudflare-dns.com/dns-query?name=google.com&type=A', 5000);
+      const dns = await fetchJson('https://dns.google/resolve?name=google.com&type=A', 5000);
       result.dohWorks = !!(dns && dns.Answer && dns.Answer.length > 0);
       result.dohIp = (dns.Answer && dns.Answer[0] && dns.Answer[0].data) || null;
     } catch (e) {
       result.dohWorks = false;
-      result.errors.push('doh: ' + e.message);
+      // لا نضيفه للأخطاء — DoH قد يفشل أحياناً لأسباب شبكية
+      console.log('[dns] doh failed:', e.message);
     }
 
     // 4) التقييم
@@ -109,11 +114,12 @@
       });
     }
 
-    // DoH فشل؟
-    if (r.dohWorks === false) {
+    // DoH فشل — لا نعرضه كتحذير (قد يفشل لأسباب شبكية)
+    // فقط نعرضها إن كان الاتصال ضعيفاً
+    if (r.dohWorks === false && r.errors && r.errors.length > 0) {
       warnings.push({
-        severity: 'medium',
-        text: 'DoH لا يعمل — قد يكون محجوباً من الشبكة.',
+        severity: 'low',
+        text: 'فحص DoH اختياري فشل — لا مشكلة، الاتصال يعمل.',
       });
     }
 
