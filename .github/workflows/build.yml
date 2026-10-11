@@ -38,8 +38,33 @@ jobs:
       - name: Install dependencies
         run: npm install
 
+      - name: Install @capacitor/assets
+        run: npm install --save-dev @capacitor/assets
+
       - name: Add Android platform
         run: npx cap add android
+
+      - name: Generate cyber-security icons and splash
+        run: |
+          npx @capacitor/assets generate \
+            --iconBackgroundColor '#0F172A' \
+            --iconBackgroundColorDark '#0F172A' \
+            --splashBackgroundColor '#0F172A' \
+            --splashBackgroundColorDark '#0F172A'
+          echo "=== Generated icons ==="
+          ls -lh android/app/src/main/res/mipmap-xxxhdpi/ic_launcher*.png
+          echo "=== Generated splash ==="
+          ls -lh android/app/src/main/res/drawable-port-xxxhdpi/splash.png
+
+      - name: Ensure app name is TND Manager
+        run: |
+          STRINGS=android/app/src/main/res/values/strings.xml
+          if [ -f "$STRINGS" ]; then
+            sed -i 's|<string name="app_name">.*</string>|<string name="app_name">TND Manager</string>|' "$STRINGS"
+            sed -i 's|<string name="title_activity_main">.*</string>|<string name="title_activity_main">TND Manager</string>|' "$STRINGS"
+          fi
+          echo "=== strings.xml ==="
+          cat "$STRINGS"
 
       - name: Sync Capacitor
         run: npx cap sync
