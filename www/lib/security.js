@@ -256,26 +256,47 @@
     try {
       const r = await router._req('/ddns.htm');
       const html = r.body;
-      const enabled = getCheckedValue(html, 'enable') !== null;
-      const hostname = getInputValue(html, 'hostname');
 
-      if (!enabled) {
-        return { id: 'ddns', severity: SEV.OK, title: 'DDNS معطّل', description: 'لا يتم كشف IP المنزل.' };
+      // اقرأ hostname + username
+      const hnM = html.match(/<input[^>]*name=["\x27]?hostname["\x27]?[^>]*value\s*=\s*["\x27]?([^"\x27\s>]*)/i);
+      const unM = html.match(/<input[^>]*name=["\x27]?username["\x27]?[^>]*value\s*=\s*["\x27]?([^"\x27\s>]*)/i);
+      const hostname = hnM ? hnM[1] : '';
+      const username = unM ? unM[1] : '';
+
+      // اقرأ الجدول — هل فيه صفوف؟
+      const tbodyMatch = html.match(/<table[^>]*Dynamic DDNS Table[^>]*>([\s\S]*?)<\/table>/i)
+        || html.match(/Dynamic DDNS Table[\s\S]{0,5000}?<\/table>/i);
+      const tableHasRows = tbodyMatch
+        ? /<tr[^>]*>[\s\S]{0,500}(?:pppoe|DynDNS|dyndns|hostname)/i.test(tbodyMatch[1])
+        : false;
+
+      // التقييم الواقعي
+      const actuallyActive = hostname && hostname.length > 0 && username && username.length > 0;
+
+      if (!actuallyActive) {
+        return {
+          id: 'ddns',
+          severity: SEV.OK,
+          title: 'DDNS معطّل فعلياً',
+          description: 'الراوتر يعرض خيار "تفعيل" لكن لا يوجد hostname أو حساب مربوط.\nهذا يعني أن IP منزلك لا يُكشف للإنترنت.',
+        };
       }
 
       return {
         id: 'ddns',
         severity: SEV.MEDIUM,
-        title: 'DDNS مفعّل',
-        description: 'DDNS يكشف عنوان IP المنزل للإنترنت عبر اسم نطاق' + (hostname ? ' (' + hostname + ')' : '') + '. استخدمه فقط إذا كنت تحتاجه.',
+        title: 'DDNS مفعّل فعلياً',
+        description: 'هناك حساب DDNS مربوط:\n• المضيف: ' + hostname + '\n• المستخدم: ' + username + '\n\nيكشف IP منزلك للإنترنت عبر اسم نطاق. استخدمه فقط إذا كنت تحتاجه.',
         fixable: true,
-        fixLabel: 'إغلاق DDNS',
+        fixLabel: 'إزالة الحساب',
         fixAction: { url: '/api/security/fix/ddns' },
       };
     } catch (e) {
       return { id: 'ddns', severity: SEV.LOW, title: 'تعذر فحص DDNS', description: e.message };
     }
   }
+
+
 
   async function checkWiFiEncryption(router) {
     try {

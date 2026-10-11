@@ -289,6 +289,12 @@
     const creds = window.appStore.getCredentials();
     if (!creds) throw new Error('بيانات الراوتر غير محفوظة');
 
+    // ⚠️ حد أقصى 2 إصلاحات في المرة
+    if (fixNames.length > 2) {
+      console.log('[fix-all] limiting to 2 fixes');
+      fixNames = fixNames.slice(0, 2);
+    }
+
     const router = new window.TPLinkRouter(creds);
     await router.login();
 
@@ -312,7 +318,11 @@
         }
         if (r && r.ok) succeeded.push(name);
         else failed.push({ name: name, error: r && r.reason || 'لم يتم التأكيد' });
-        await sleep(2000);
+        // ⚠️ 30 ثانية راحة بين الإصلاحات
+        if (i < fixNames.length - 1) {
+          console.log('[fix-all] waiting 30s...');
+          await sleep(30000);
+        }
       } catch (e) {
         failed.push({ name: name, error: e.message });
       }

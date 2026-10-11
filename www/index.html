@@ -2393,6 +2393,114 @@ function app() {
   }
 })();
 </script>
+
+<!-- ═══════════ Offline Overlay ═══════════ -->
+<div id="offline-overlay" style="display:none;position:fixed;inset:0;z-index:999999;background:linear-gradient(135deg,#0f172a 0%,#1e293b 100%);color:#e2e8f0;font-family:-apple-system,system-ui,'Segoe UI',sans-serif;padding:20px;">
+  <div style="max-width:420px;margin:auto;padding-top:15vh;text-align:center;">
+    <div style="width:90px;height:90px;margin:0 auto 24px;border-radius:50%;background:linear-gradient(135deg,#dc2626,#ef4444);display:flex;align-items:center;justify-content:center;box-shadow:0 8px 24px rgba(220,38,38,0.4);">
+      <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" style="width:48px;height:48px;">
+        <line x1="1" y1="1" x2="23" y2="23"/>
+        <path d="M16.72 11.06A10.94 10.94 0 0 1 19 12.55"/>
+        <path d="M5 12.55a10.94 10.94 0 0 1 5.17-2.39"/>
+        <path d="M10.71 5.05A16 16 0 0 1 22.58 9"/>
+        <path d="M1.42 9a15.91 15.91 0 0 1 4.7-2.88"/>
+        <path d="M8.53 16.11a6 6 0 0 1 6.95 0"/>
+        <line x1="12" y1="20" x2="12.01" y2="20"/>
+      </svg>
+    </div>
+    <h1 style="font-size:22px;font-weight:800;margin-bottom:12px;">لا يوجد اتصال بالإنترنت</h1>
+    <p style="font-size:14px;color:#94a3b8;line-height:1.7;margin-bottom:8px;">
+      يحتاج التطبيق للإنترنت لتحميل واجهته.
+    </p>
+    <p style="font-size:13px;color:#64748b;line-height:1.7;margin-bottom:32px;">
+      يرجى تفعيل الواي فاي أو بيانات الجوال، ثم اضغط "إعادة المحاولة".
+    </p>
+
+    <button onclick="window.location.reload()" style="width:100%;padding:16px;border-radius:12px;border:none;background:linear-gradient(135deg,#2563eb,#1d4ed8);color:white;font-size:15px;font-weight:700;font-family:inherit;cursor:pointer;box-shadow:0 6px 20px rgba(37,99,235,0.4);">
+      🔄 إعادة المحاولة
+    </button>
+
+    <div style="margin-top:24px;padding-top:24px;border-top:1px solid rgba(148,163,184,0.15);">
+      <p style="font-size:12px;color:#64748b;line-height:1.6;">
+        💡 يمكنك التحكم بالراوتر عبر شاشة الإعداد إن كان جهازك على واي فاي JABER_TEL
+      </p>
+    </div>
+
+    <div id="offline-check-info" style="margin-top:16px;font-size:11px;color:#475569;font-family:monospace;direction:ltr;">
+      Checking connectivity...
+    </div>
+  </div>
+</div>
+
+<script>
+(function() {
+  var overlay = document.getElementById('offline-overlay');
+  var info = document.getElementById('offline-check-info');
+
+  function setInfo(msg) {
+    if (info) info.textContent = msg;
+  }
+
+  function checkOnline() {
+    // نتحقق من الإنترنت عبر Cloudflare (سريع + موثوق)
+    var controller = new AbortController();
+    var timer = setTimeout(function() { controller.abort(); }, 4000);
+
+    return fetch('https://speed.cloudflare.com/__down?bytes=1', {
+      method: 'GET',
+      cache: 'no-store',
+      signal: controller.signal
+    }).then(function(r) {
+      clearTimeout(timer);
+      return r.ok || r.status === 200;
+    }).catch(function() {
+      clearTimeout(timer);
+      return false;
+    });
+  }
+
+  function showOverlay(reason) {
+    if (overlay) overlay.style.display = 'block';
+    setInfo('Offline: ' + (reason || 'no response'));
+  }
+
+  function hideOverlay() {
+    if (overlay) overlay.style.display = 'none';
+  }
+
+  // تحقق فوري عند فتح التطبيق
+  if (navigator.onLine === false) {
+    showOverlay('navigator says offline');
+  } else {
+    // نتحقق فعلياً (navigator قد يكون مضللاً)
+    checkOnline().then(function(ok) {
+      if (!ok) {
+        showOverlay('connectivity test failed');
+      } else {
+        setInfo('Online ✅');
+      }
+    });
+  }
+
+  // مراقبة تغيرات الاتصال
+  window.addEventListener('online', function() {
+    setInfo('online event received');
+    checkOnline().then(function(ok) { if (ok) hideOverlay(); });
+  });
+
+  window.addEventListener('offline', function() {
+    showOverlay('offline event');
+  });
+
+  // فحص كل 10 ثواني (لو الـ overlay ظاهر)
+  setInterval(function() {
+    if (overlay && overlay.style.display === 'block') {
+      checkOnline().then(function(ok) { if (ok) hideOverlay(); });
+    }
+  }, 10000);
+})();
+</script>
+
 </body>
 </html>
 
