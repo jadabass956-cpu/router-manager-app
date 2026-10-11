@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <defs>
+    <linearGradient id="shieldGrad2" x1="50%" y1="0%" x2="50%" y2="100%">
+      <stop offset="0%" style="stop-color:#3B82F6"/>
+      <stop offset="100%" style="stop-color:#1D4ED8"/>
+    </linearGradient>
+    <linearGradient id="shieldHighlight2" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#60A5FA;stop-opacity:0.5"/>
+      <stop offset="100%" style="stop-color:#1E40AF;stop-opacity:0"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Shield (smaller, centered for adaptive icon safe zone) -->
+  <path d="M 512 300
+           C 512 300, 660 340, 700 370
+           L 700 370
+           C 700 570, 680 700, 512 830
+           C 344 700, 324 570, 324 370
+           C 364 340, 512 300, 512 300 Z"
+        fill="url(#shieldGrad2)"
+        stroke="#1E40AF"
+        stroke-width="6"/>
+
+  <path d="M 512 315
+           C 512 315, 645 350, 680 375
+           C 680 565, 662 690, 512 815
+           C 362 690, 344 565, 344 375
+           C 379 350, 512 315, 512 315 Z"
+        fill="url(#shieldHighlight2)"/>
+
+  <!-- Signal waves -->
+  <g stroke="#FFFFFF" stroke-width="11" stroke-linecap="round" fill="none">
+    <path d="M 420 465 Q 512 415 604 465"/>
+    <path d="M 448 500 Q 512 470 576 500"/>
+  </g>
+  <circle cx="512" cy="530" r="10" fill="#FFFFFF"/>
+
+  <!-- Router body -->
+  <rect x="390" y="555" width="244" height="85" rx="18" ry="18" fill="#FFFFFF"/>
+
+  <!-- Antennas -->
+  <g stroke="#FFFFFF" stroke-width="10" stroke-linecap="round">
+    <line x1="425" y1="555" x2="413" y2="512"/>
+    <line x1="599" y1="555" x2="611" y2="512"/>
+  </g>
+
+  <!-- LEDs -->
+  <circle cx="425" cy="597" r="8" fill="#10B981"/>
+  <circle cx="462" cy="597" r="8" fill="#10B981"/>
+  <circle cx="499" cy="597" r="8" fill="#F59E0B"/>
+  <circle cx="536" cy="597" r="8" fill="#10B981"/>
+  <circle cx="573" cy="597" r="8" fill="#10B981"/>
+  <circle cx="599" cy="597" r="8" fill="#94A3B8"/>
+
+  <!-- Green check -->
+  <g transform="translate(615, 665)">
+    <circle cx="0" cy="0" r="58" fill="#10B981" stroke="#FFFFFF" stroke-width="6"/>
+    <path d="M -28 -3 L -8 17 L 30 -22"
+          stroke="#FFFFFF"
+          stroke-width="13"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          fill="none"/>
+  </g>
+</svg>

@@ -1,0 +1,121 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <defs>
+    <!-- Background gradient: deep cyber blue -->
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#0F172A;stop-opacity:1"/>
+      <stop offset="50%" style="stop-color:#1E3A8A;stop-opacity:1"/>
+      <stop offset="100%" style="stop-color:#1E40AF;stop-opacity:1"/>
+    </linearGradient>
+
+    <!-- Shield gradient -->
+    <linearGradient id="shieldGrad" x1="50%" y1="0%" x2="50%" y2="100%">
+      <stop offset="0%" style="stop-color:#3B82F6;stop-opacity:1"/>
+      <stop offset="100%" style="stop-color:#1D4ED8;stop-opacity:1"/>
+    </linearGradient>
+
+    <!-- Shield inner highlight -->
+    <linearGradient id="shieldHighlight" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#60A5FA;stop-opacity:0.6"/>
+      <stop offset="50%" style="stop-color:#3B82F6;stop-opacity:0.1"/>
+      <stop offset="100%" style="stop-color:#1E40AF;stop-opacity:0"/>
+    </linearGradient>
+
+    <!-- Green check glow -->
+    <filter id="greenGlow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="12" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+
+    <!-- Shield shadow -->
+    <filter id="shieldShadow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="20"/>
+      <feOffset dx="0" dy="12" result="offsetblur"/>
+      <feComponentTransfer>
+        <feFuncA type="linear" slope="0.5"/>
+      </feComponentTransfer>
+      <feMerge>
+        <feMergeNode/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <!-- Background -->
+  <rect x="0" y="0" width="1024" height="1024" rx="220" ry="220" fill="url(#bgGrad)"/>
+
+  <!-- Subtle grid pattern (cyber feel) -->
+  <g opacity="0.05" stroke="#60A5FA" stroke-width="1.5" fill="none">
+    <path d="M 0 200 L 1024 200 M 0 400 L 1024 400 M 0 600 L 1024 600 M 0 800 L 1024 800"/>
+    <path d="M 200 0 L 200 1024 M 400 0 L 400 1024 M 600 0 L 600 1024 M 800 0 L 800 1024"/>
+  </g>
+
+  <!-- ===== MAIN SHIELD ===== -->
+  <g filter="url(#shieldShadow)">
+    <!-- Shield outer shape -->
+    <path d="M 512 120
+             C 512 120, 720 180, 780 220
+             L 780 220
+             C 780 500, 760 680, 512 880
+             C 264 680, 244 500, 244 220
+             C 304 180, 512 120, 512 120 Z"
+          fill="url(#shieldGrad)"
+          stroke="#1E40AF"
+          stroke-width="8"/>
+
+    <!-- Shield inner highlight -->
+    <path d="M 512 140
+             C 512 140, 700 195, 755 230
+             C 755 490, 738 660, 512 850
+             C 286 660, 269 490, 269 230
+             C 324 195, 512 140, 512 140 Z"
+          fill="url(#shieldHighlight)"/>
+  </g>
+
+  <!-- ===== ROUTER INSIDE SHIELD ===== -->
+  <g>
+    <!-- Signal waves (from router) -->
+    <g stroke="#FFFFFF" stroke-width="14" stroke-linecap="round" fill="none" opacity="0.9">
+      <path d="M 400 340 Q 512 280 624 340" />
+      <path d="M 435 385 Q 512 345 589 385" />
+    </g>
+
+    <!-- Signal dot -->
+    <circle cx="512" cy="425" r="12" fill="#FFFFFF"/>
+
+    <!-- Router body -->
+    <rect x="365" y="460" width="294" height="105" rx="22" ry="22" fill="#FFFFFF"/>
+
+    <!-- Antennas (2 side ones) -->
+    <g stroke="#FFFFFF" stroke-width="13" stroke-linecap="round">
+      <line x1="410" y1="460" x2="395" y2="405"/>
+      <line x1="614" y1="460" x2="629" y2="405"/>
+    </g>
+
+    <!-- LED indicators -->
+    <circle cx="410" cy="512" r="10" fill="#10B981"/>
+    <circle cx="455" cy="512" r="10" fill="#10B981"/>
+    <circle cx="500" cy="512" r="10" fill="#F59E0B"/>
+    <circle cx="545" cy="512" r="10" fill="#10B981"/>
+    <circle cx="590" cy="512" r="10" fill="#10B981"/>
+    <circle cx="614" cy="512" r="10" fill="#94A3B8"/>
+  </g>
+
+  <!-- ===== GREEN CHECKMARK (Security = OK) ===== -->
+  <g filter="url(#greenGlow)" transform="translate(650, 620)">
+    <circle cx="0" cy="0" r="85" fill="#10B981" stroke="#FFFFFF" stroke-width="8"/>
+    <path d="M -42 -5 L -12 25 L 45 -35"
+          stroke="#FFFFFF"
+          stroke-width="18"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          fill="none"/>
+  </g>
+
+  <!-- ===== Bottom accent line ===== -->
+  <rect x="312" y="920" width="400" height="6" rx="3" fill="#3B82F6" opacity="0.5"/>
+</svg>
+

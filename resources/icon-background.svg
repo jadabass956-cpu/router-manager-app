@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <defs>
+    <linearGradient id="bgGrad2" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#0F172A"/>
+      <stop offset="50%" style="stop-color:#1E3A8A"/>
+      <stop offset="100%" style="stop-color:#1E40AF"/>
+    </linearGradient>
+  </defs>
+  <rect x="0" y="0" width="1024" height="1024" fill="url(#bgGrad2)"/>
+
+  <!-- Cyber grid pattern -->
+  <g opacity="0.08" stroke="#60A5FA" stroke-width="1.5" fill="none">
+    <path d="M 0 128 L 1024 128 M 0 256 L 1024 256 M 0 384 L 1024 384
+             M 0 512 L 1024 512 M 0 640 L 1024 640 M 0 768 L 1024 768
+             M 0 896 L 1024 896"/>
+    <path d="M 128 0 L 128 1024 M 256 0 L 256 1024 M 384 0 L 384 1024
+             M 512 0 L 512 1024 M 640 0 L 640 1024 M 768 0 L 768 1024
+             M 896 0 L 896 1024"/>
+  </g>
+</svg>
+
