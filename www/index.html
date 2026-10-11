@@ -1876,7 +1876,7 @@ function app() {
             this.filter.macs = r.macs || [];
             this.toast('تم رفع كل الحظر', 'success');
             this.log('🚨 طوارئ: أُلغي كل الحظر', 'warn');
-            this.closeConfirm();
+            this.closeConfirm(true);
           } catch (e) {
             this.toast(e.message, 'error');
             this.confirmModal.loading = false;
@@ -1979,8 +1979,12 @@ function app() {
         danger: true,
         onConfirm: async () => {
           this.confirmModal.loading = true;
-          await this.deleteKnown(d.mac);
-          this.closeConfirm();
+          try {
+            await this.deleteKnown(d.mac);
+          } finally {
+            this.confirmModal.loading = false;
+            this.closeConfirm(true);
+          }
         },
       });
     },
@@ -2404,7 +2408,7 @@ function app() {
             this.log('تغيير تشفير: ' + encType, 'warn');
             this.wifiSec.password = '';
             this.wifiSec.showPass = false;
-            this.closeConfirm();
+            this.closeConfirm(true);
             setTimeout(() => { try { this.loadWifi(); } catch (e) {} }, 3000);
           } catch (e) {
             this.toast('فشل: ' + e.message, 'error');
