@@ -294,6 +294,58 @@ tailwind.config = {
       </div>
       <button @click="askPasswordChange()" :disabled="loading.wifiSave || forms.password.length < 8 || forms.password.length > 63" class="w-full py-2.5 rounded-lg bg-danger hover:bg-red-700 text-white text-sm font-medium disabled:opacity-50">🔒 تغيير كلمة المرور (سيقطع الاتصال)</button>
     </div>
+    <!-- بطاقة الحماية الكاملة (تشفير + كلمة مرور) -->
+    <div x-show="!loading.wifi" class="bg-white dark:bg-gray-800 rounded-xl p-4 space-y-3 mt-4">
+      <h3 class="font-bold text-sm">🔒 حماية الشبكة (تشفير + كلمة مرور)</h3>
+
+      <div>
+        <label class="text-xs font-medium text-gray-500 block mb-1.5">نوع الحماية</label>
+        <select x-model="security.encryption" class="w-full px-3 py-2.5 rounded-lg bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 focus:border-primary outline-none text-sm">
+          <option value="WPA2-AES">🟢 WPA2-AES (موصى به — متوافق مع كل الأجهزة)</option>
+          <option value="WPA3">🆕 WPA3 (أحدث — قد لا يدعمه كل جهاز)</option>
+          <option value="None">⚠️ بدون تشفير (خطر)</option>
+        </select>
+      </div>
+
+      <div class="flex items-center gap-2 py-1">
+        <input type="checkbox" id="adv-toggle" x-model="security.advanced" class="w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary" />
+        <label for="adv-toggle" class="text-xs text-gray-600 dark:text-gray-400 cursor-pointer">عرض الخيارات المتقدمة</label>
+      </div>
+
+      <div x-show="security.advanced" x-transition class="space-y-2">
+        <label class="text-xs font-medium text-gray-500 block">أنواع قديمة (لأجهزة قديمة فقط)</label>
+        <select x-model="security.encryption" class="w-full px-3 py-2.5 rounded-lg bg-gray-50 dark:bg-gray-900 border border-amber-300 dark:border-amber-700 focus:border-amber-500 outline-none text-sm">
+          <option value="WPA-TKIP">WPA-TKIP (قديم)</option>
+          <option value="WPA-AES">WPA-AES (قديم)</option>
+          <option value="WPA2-TKIP">WPA2-TKIP</option>
+          <option value="WPA2-Mixed">WPA2-Mixed (متوافق مع الأقدم)</option>
+          <option value="WPA3-Mixed">WPA3-Mixed</option>
+          <option value="WEP">WEP (غير آمن — تجنبه)</option>
+        </select>
+        <p class="text-[10px] text-amber-700 dark:text-amber-400">⚠️ الأنواع القديمة أبطأ وأقل أماناً.</p>
+      </div>
+
+      <div>
+        <label class="text-xs font-medium text-gray-500 block mb-1.5">كلمة المرور الجديدة (8-63 حرف)</label>
+        <div class="relative">
+          <input :type="security.showPass ? 'text' : 'password'" x-model="security.password" placeholder="كلمة مرور قوية" class="w-full px-3 py-2.5 pl-10 rounded-lg bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 focus:border-primary outline-none text-sm font-mono" dir="ltr" />
+          <button type="button" @click="security.showPass = !security.showPass" class="absolute left-2 top-1/2 -translate-y-1/2 p-1 text-gray-400">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+          </button>
+        </div>
+        <button type="button" @click="suggestPassword()" class="mt-1 text-[11px] text-primary underline">🎲 اقتراح كلمة مرور قوية</button>
+      </div>
+
+      <div class="bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 rounded-lg p-2.5 text-[11px] text-red-700 dark:text-red-400 leading-relaxed">
+        ⚠️ <b>تنبيه:</b> عند الحفظ سينقطع اتصالك بالواي فاي فوراً. ستحتاج إدخال كلمة المرور الجديدة على كل أجهزتك.
+      </div>
+
+      <button @click="saveSecurity()" :disabled="security.saving || security.password.length < 8"
+              class="w-full py-2.5 rounded-lg bg-primary hover:bg-primary-dark text-white text-sm font-bold disabled:opacity-50">
+        <span x-text="security.saving ? 'جاري الحفظ…' : '🔒 حفظ وحماية الشبكة'"></span>
+      </button>
+    </div>
+
   </section>
 
   <section x-show="tab === 'speed'" x-transition.opacity.duration.200ms class="space-y-4" x-cloak>
@@ -1302,6 +1354,7 @@ function app() {
     calibration: { packetSize: 800, samples: 0, source: 'default', loading: false, calibrating: false },
     credentials: { host: '', username: '', password: '', source: 'env' },
     update: { current: '', latest: '', minRequired: '', updateAvailable: false, blocked: false, killSwitch: false, forceUpdate: false, message: '', announcement: '', checkedAt: 0, ok: false },
+    security: { encryption: 'WPA2-AES', password: '', advanced: false, showPass: false, saving: false },
     time: { date: { year: 0, month: 1, day: 1, hour: 0, min: 0, sec: 0 }, daylightsaving: 0, ntp: { enabled: false, server1: '', server2: '', interval: 1, timezone: null }, gmtTime: '', loaded: false, editMode: false, edit: {}, saving: false, tzSelected: null, tzSaving: false, ntpSaving: false, syncing: false },
     timezones: { items: [], loaded: false },
     pppoe: { connected: false, entry: null, loaded: false, loading: false },
@@ -2313,6 +2366,54 @@ function app() {
     },
     sevIcon(sev) {
       return { critical: '🚨', high: '⚠️', medium: '⚡', low: 'ℹ️', ok: '✅' }[sev] || 'ℹ️';
+    },
+    suggestPassword() {
+      const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789!@#$%';
+      let pwd = '';
+      for (let i = 0; i < 16; i++) pwd += chars[Math.floor(Math.random() * chars.length)];
+      this.security.password = pwd;
+      this.security.showPass = true;
+      this.toast('تم اقتراح كلمة مرور قوية', 'success');
+    },
+    async saveSecurity() {
+      if (this.security.password.length < 8) {
+        this.toast('كلمة المرور يجب أن تكون 8 أحرف على الأقل', 'error');
+        return;
+      }
+      const encType = this.security.encryption;
+      const advanced = this.security.advanced;
+      this.openConfirm({
+        title: 'تغيير حماية الشبكة',
+        message: 'سيتم تطبيق: ' + encType,
+        detail: '⚠️ سيقطع الاتصال بالواي فاي فوراً.\n\nستحتاج إدخال كلمة المرور الجديدة يدوياً على كل أجهزتك.',
+        confirmText: 'تطبيق الآن',
+        danger: true,
+        onConfirm: async () => {
+          this.confirmModal.loading = true;
+          this.security.saving = true;
+          try {
+            await this.api('/api/wifi/security', {
+              method: 'PUT',
+              body: JSON.stringify({
+                encryption: encType,
+                password: this.security.password,
+                advanced: advanced,
+              }),
+            });
+            this.toast('✅ تم تطبيق الحماية', 'success');
+            this.log('تغيير تشفير: ' + encType, 'warn');
+            this.security.password = '';
+            this.security.showPass = false;
+            this.closeConfirm();
+            setTimeout(() => { try { this.loadWifi(); } catch (e) {} }, 3000);
+          } catch (e) {
+            this.toast('فشل: ' + e.message, 'error');
+            this.confirmModal.loading = false;
+          } finally {
+            this.security.saving = false;
+          }
+        },
+      });
     },
     getVendor(mac) {
       if (!window.vendor) return { icon: '❓', vendor: null, vendorAr: null };

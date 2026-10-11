@@ -571,6 +571,37 @@
       } catch (e) {}
       return { ok: true };
     }
+
+    // ═══ setSecurity — التشفير + كلمة المرور معاً ═══
+    async setSecurity({ encryption, password }) {
+      const cleanPass = String(password || '');
+      if (cleanPass.length < 8 || cleanPass.length > 63) {
+        throw new Error('كلمة المرور يجب أن تكون 8-63 حرف');
+      }
+
+      const map = {
+        'None': 0, 'WEP': 1, 'WPA-TKIP': 2, 'WPA-AES': 3,
+        'WPA2-AES': 4, 'WPA2-TKIP': 5, 'WPA2-Mixed': 6,
+        'WPA3': 7, 'WPA3-Mixed': 8,
+      };
+      const method = map[encryption];
+      if (method === undefined) throw new Error('نوع تشفير غير مدعوم: ' + encryption);
+
+      const body = form({
+        [EP.securityFields.method]: String(method),
+        [EP.securityFields.pskFormat]: '0',
+        [EP.securityFields.pskValue]: cleanPass,
+        [EP.securityFields.wpaAuth]: '1',
+        [EP.securityFields.wpaSSID]: '0',
+        [EP.securityFields.checkWPS2]: '1',
+        [EP.securityFields.submit]: 'Send',
+      });
+
+      await this._req(EP.wifi.securityForm, { method: 'POST', body });
+      await this._sleep(3000);
+
+      return { encryption: encryption, passwordSet: true };
+    }
   }
 
   window.TPLinkRouter = TPLinkRouter;

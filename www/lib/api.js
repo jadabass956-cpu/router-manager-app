@@ -311,6 +311,23 @@
       try { return jsonResponse(await withRouter((d) => d.getWifiSettings())); }
       catch (e) { return errorResponse('ROUTER_UNREACHABLE', e.message, 502); }
     },
+    'PUT /api/wifi/security': async (params, body) => {
+      try {
+        const encryption = String(body.encryption || '').trim();
+        const password = String(body.password || '');
+        if (!encryption) return errorResponse('BAD_REQUEST', 'نوع التشفير مطلوب');
+        if (password.length < 8 || password.length > 63) {
+          return errorResponse('BAD_REQUEST', 'كلمة المرور 8-63 حرف');
+        }
+        const r = await withRouter((d) => d.setSecurity({
+          encryption: encryption,
+          password: password,
+        }));
+        return jsonResponse({ ok: true, ...r });
+      } catch (e) {
+        return errorResponse('APPLY_FAILED', e.message);
+      }
+    },
     'PUT /api/wifi/ssid': async (params, body) => {
       try { return jsonResponse(await withRouter((d) => d.setSSID(body.ssid))); }
       catch (e) { return errorResponse('APPLY_FAILED', e.message); }
