@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 2732 2732" width="2732" height="2732">
+<svg data-texts-moved="v1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 2732 2732" width="2732" height="2732">
   <defs>
     <linearGradient id="splashBg" x1="0%" y1="0%" x2="0%" y2="100%">
       <stop offset="0%" style="stop-color:#0F172A"/>
@@ -105,7 +105,7 @@
   </g>
 
   <!-- App name -->
-  <text x="1366" y="1760"
+  <text x="1366" y="1860"
         font-family="'Segoe UI','Roboto',sans-serif"
         font-size="150" font-weight="700"
         fill="#FFFFFF" text-anchor="middle"
@@ -114,7 +114,7 @@
   </text>
 
   <!-- Subtitle -->
-  <text x="1366" y="1890"
+  <text x="1366" y="1990"
         font-family="'Segoe UI','Roboto',sans-serif"
         font-size="55" font-weight="400"
         fill="#60A5FA" text-anchor="middle"
@@ -123,7 +123,7 @@
   </text>
 
   <!-- Tagline -->
-  <text x="1366" y="1990"
+  <text x="1366" y="2090"
         font-family="'Segoe UI','Roboto',sans-serif"
         font-size="42" font-weight="300"
         fill="#93C5FD" text-anchor="middle"
@@ -132,6 +132,6 @@
   </text>
 
   <!-- Bottom accent line -->
-  <rect x="1166" y="2075" width="400" height="8" rx="4" fill="#3B82F6"/>
+  <rect x="1166" y="2175" width="400" height="8" rx="4" fill="#3B82F6"/>
 </svg>
 
