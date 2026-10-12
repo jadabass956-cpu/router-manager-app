@@ -8,3 +8,5 @@ build/
 .env
 .DS_Store
 *.bak
+capacitor.config.json.bak*
+*.bak2
