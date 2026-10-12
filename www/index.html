@@ -1783,11 +1783,25 @@ function app() {
     },
     async loadTimezones() {
       if (this.timezones.loaded) return;
+      // 1) جرّب API أولًا (لو الراوتر يدعمها)
       try {
         const r = await this.api('/api/time/timezones');
-        this.timezones.items = r.items || [];
-        this.timezones.loaded = true;
+        if (r.items && r.items.length > 0) {
+          this.timezones.items = r.items;
+          this.timezones.loaded = true;
+          return;
+        }
       } catch (e) {}
+      // 2) fallback: البيانات المدمجة
+      if (window.TZ_LIST && window.TZ_LIST.length > 0) {
+        this.timezones.items = window.TZ_LIST;
+        this.timezones.loaded = true;
+        this.log('استُخدمت قائمة المناطق المدمجة', 'info');
+        return;
+      }
+      // 3) فشل كل شيء
+      this.timezones.loaded = true;
+      this.toast('لا توجد قائمة مناطق', 'error');
     },
     toggleManualEdit() {
       this.time.editMode = !this.time.editMode;
@@ -2682,6 +2696,7 @@ function app() {
 <script src="lib/router-full.js"></script>
 <script src="lib/speed.js"></script>
 <script src="lib/vendor.js"></script>
+<script src="lib/timezones-data.js"></script>
 <script src="lib/api.js"></script>
 <script src="lib/security.js"></script>
 <script src="lib/security-fixes.js"></script>
