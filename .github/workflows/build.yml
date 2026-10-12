@@ -41,6 +41,9 @@ jobs:
       - name: Install @capacitor/assets
         run: npm install --save-dev @capacitor/assets
 
+      - name: Install @capacitor/splash-screen
+        run: npm install @capacitor/splash-screen@6
+
       - name: Add Android platform
         run: npx cap add android
 

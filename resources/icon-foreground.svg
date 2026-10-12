@@ -12,7 +12,7 @@
   </defs>
 
   <!-- Shield (smaller, centered for adaptive icon safe zone) -->
-  <g data-scale="1.2" transform="translate(-102.40 -113.00) scale(1.2)"><path d="M 512 300
+  <g data-scale="1.55" transform="translate(-281.60 -310.75) scale(1.55)"><path d="M 512 300
            C 512 300, 660 340, 700 370
            L 700 370
            C 700 570, 680 700, 512 830
