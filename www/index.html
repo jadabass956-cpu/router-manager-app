@@ -42,7 +42,7 @@ tailwind.config = {
   @keyframes skel { 0% { background-position: 200% 0 } 100% { background-position: -200% 0 } }
 </style>
 </head>
-<body data-no-emergency="v1" data-safe="v1" class="bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-gray-100 font-sans min-h-screen" x-data="app()" x-init="init()" x-cloak>
+<body data-deadcode-cleanup="v1" data-wifi-cleanup="v1" data-no-emergency="v1" data-safe="v1" class="bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-gray-100 font-sans min-h-screen" x-data="app()" x-init="init()" x-cloak>
 
 <header class="sticky top-0 z-30 bg-white/80 dark:bg-gray-900/80 backdrop-blur border-b border-gray-200 dark:border-gray-800">
   <div class="max-w-5xl mx-auto px-4 h-14 flex items-center gap-3">
@@ -262,23 +262,6 @@ tailwind.config = {
         <button @click="saveSsid()" :disabled="loading.wifiSave || forms.ssid === wifi.ssid || !forms.ssid" class="px-4 py-2.5 rounded-lg bg-primary hover:bg-primary-dark text-white text-sm font-medium disabled:opacity-50">حفظ</button>
       </div>
     </div>
-    <div x-show="!loading.wifi" class="bg-white dark:bg-gray-800 rounded-xl p-4 space-y-3">
-      <label class="text-xs font-medium text-gray-500 block">نوع التشفير</label>
-      <select x-model="forms.encryption" class="w-full px-3 py-2.5 rounded-lg bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 focus:border-primary outline-none text-sm">
-        <template x-for="e in wifi.supported" :key="e"><option :value="e" x-text="e"></option></template>
-      </select>
-      <button @click="askEncryptionChange()" :disabled="loading.wifiSave || forms.encryption === wifi.encryption" class="w-full py-2.5 rounded-lg bg-warning hover:bg-yellow-700 text-white text-sm font-medium disabled:opacity-50">⚠️ تغيير التشفير (سيقطع الاتصال)</button>
-    </div>
-    <div x-show="!loading.wifi" class="bg-white dark:bg-gray-800 rounded-xl p-4 space-y-3">
-      <label class="text-xs font-medium text-gray-500 block">كلمة المرور الجديدة</label>
-      <div class="relative">
-        <input :type="showPass ? 'text' : 'password'" x-model="forms.password" placeholder="8 - 63 حرف" class="w-full px-3 py-2.5 rounded-lg bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none text-sm pl-10" dir="ltr" />
-        <button type="button" @click="showPass = !showPass" class="absolute left-2 top-1/2 -translate-y-1/2 p-1 text-gray-400">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-        </button>
-      </div>
-      <button @click="askPasswordChange()" :disabled="loading.wifiSave || forms.password.length < 8 || forms.password.length > 63" class="w-full py-2.5 rounded-lg bg-danger hover:bg-red-700 text-white text-sm font-medium disabled:opacity-50">🔒 تغيير كلمة المرور (سيقطع الاتصال)</button>
-    </div>
     <!-- بطاقة الحماية الكاملة (تشفير + كلمة مرور) -->
     <div x-show="!loading.wifi" class="bg-white dark:bg-gray-800 rounded-xl p-4 space-y-3 mt-4">
     <div x-show="!loading.wifi" class="bg-white dark:bg-gray-800 rounded-xl p-4 space-y-3">
@@ -315,31 +298,24 @@ tailwind.config = {
       <div>
         <label class="text-xs font-medium text-gray-500 block mb-1.5">نوع الحماية</label>
         <select x-model="wifiSec.encryption" class="w-full px-3 py-2.5 rounded-lg bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 focus:border-primary outline-none text-sm">
-          <option value="WPA2-AES">🟢 WPA2-AES (موصى به — متوافق مع كل الأجهزة)</option>
-          <option value="WPA3">🆕 WPA3 (أحدث — قد لا يدعمه كل جهاز)</option>
-          <option value="None">⚠️ بدون تشفير (خطر)</option>
+          <optgroup label="🟢 موصى به — آمن وحديث">
+            <option value="WPA2-AES">WPA2-AES — الأفضل للتوافق العام</option>
+            <option value="WPA3">WPA3 — الأحدث (يحتاج أجهزة حديثة)</option>
+          </optgroup>
+          <optgroup label="🟡 متوافق مع أجهزة قديمة">
+            <option value="WPA2-Mixed">WPA2-Mixed — يخلط WPA2/WPA3</option>
+            <option value="WPA3-Mixed">WPA3-Mixed — انتقالي</option>
+            <option value="WPA-AES">WPA-AES — قديم</option>
+            <option value="WPA-TKIP">WPA-TKIP — قديم جداً (تجنبه)</option>
+            <option value="WPA2-TKIP">WPA2-TKIP</option>
+          </optgroup>
+          <optgroup label="🔴 غير آمن">
+            <option value="WEP">WEP — مكسور أمنياً</option>
+            <option value="None">بدون تشفير — خطر</option>
+          </optgroup>
         </select>
       </div>
-
-      <div class="flex items-center gap-2 py-1">
-        <input type="checkbox" id="adv-toggle" x-model="wifiSec.advanced" class="w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary" />
-        <label for="adv-toggle" class="text-xs text-gray-600 dark:text-gray-400 cursor-pointer">عرض الخيارات المتقدمة</label>
-      </div>
-
-      <div x-show="wifiSec.advanced" x-transition class="space-y-2">
-        <label class="text-xs font-medium text-gray-500 block">أنواع قديمة (لأجهزة قديمة فقط)</label>
-        <select x-model="wifiSec.encryption" class="w-full px-3 py-2.5 rounded-lg bg-gray-50 dark:bg-gray-900 border border-amber-300 dark:border-amber-700 focus:border-amber-500 outline-none text-sm">
-          <option value="WPA-TKIP">WPA-TKIP (قديم)</option>
-          <option value="WPA-AES">WPA-AES (قديم)</option>
-          <option value="WPA2-TKIP">WPA2-TKIP</option>
-          <option value="WPA2-Mixed">WPA2-Mixed (متوافق مع الأقدم)</option>
-          <option value="WPA3-Mixed">WPA3-Mixed</option>
-          <option value="WEP">WEP (غير آمن — تجنبه)</option>
-        </select>
-        <p class="text-[10px] text-amber-700 dark:text-amber-400">⚠️ الأنواع القديمة أبطأ وأقل أماناً.</p>
-      </div>
-
-      <div>
+<div>
         <label class="text-xs font-medium text-gray-500 block mb-1.5">كلمة المرور الجديدة (8-63 حرف)</label>
         <div class="relative">
           <input :type="wifiSec.showPass ? 'text' : 'password'" x-model="wifiSec.password" placeholder="كلمة مرور قوية" class="w-full px-3 py-2.5 pl-10 rounded-lg bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 focus:border-primary outline-none text-sm font-mono" dir="ltr" />
@@ -1556,7 +1532,7 @@ function app() {
     speed: { testing: false, result: null, size: 1, mode: 'download' },
     rebooting: false, rebootCountdown: 0,
     newMac: '',
-    forms: { ssid: '', encryption: '', password: '' },
+    forms: { ssid: '' },
     loading: { devices: false, filter: false, wifi: false, wifiSave: false, wan: false },
     toasts: [],
     modal: { open: false, title: '', message: '', confirmText: 'تأكيد', danger: false, onConfirm: null },
@@ -1678,7 +1654,7 @@ function app() {
         const r = await this.api('/api/wifi');
         this.wifi.ssid = r.ssid || ''; this.wifi.encryption = r.encryption || 'None';
         this.wifi.supported = r.supported || [];
-        this.forms.ssid = r.ssid || ''; this.forms.encryption = r.encryption || 'None';
+        this.forms.ssid = r.ssid || '';
         this.lastUpdate = new Date();
       } catch (e) { this.toast(e.message, 'error'); } finally { this.loading.wifi = false; }
     },
@@ -1688,27 +1664,6 @@ function app() {
       try {
         await this.api('/api/wifi/ssid', { method: 'PUT', body: JSON.stringify({ ssid }) });
         this.wifi.ssid = ssid; this.toast('تم تغيير اسم الشبكة', 'success'); this.log('تغيير SSID: ' + ssid, 'ok');
-      } catch (e) { this.toast(e.message, 'error'); } finally { this.loading.wifiSave = false; }
-    },
-    askEncryptionChange() {
-      this.openModal({ title: 'تغيير التشفير', message: '⚠️ سيقطع الاتصال. متابعة؟', confirmText: 'تغيير', danger: true, onConfirm: () => this.saveEncryption() });
-    },
-    async saveEncryption() {
-      const type = this.forms.encryption; this.loading.wifiSave = true;
-      try {
-        await this.api('/api/wifi/encryption', { method: 'PUT', body: JSON.stringify({ type }) });
-        this.wifi.encryption = type; this.toast('تم تغيير التشفير', 'success'); this.log('التشفير: ' + type, 'warn');
-      } catch (e) { this.toast(e.message, 'error'); } finally { this.loading.wifiSave = false; }
-    },
-    askPasswordChange() {
-      if (this.forms.password.length < 8 || this.forms.password.length > 63) { this.toast('8-63 حرف', 'error'); return; }
-      this.openModal({ title: 'تغيير كلمة المرور', message: '⚠️ سيقطع الاتصال. متابعة؟', confirmText: 'تغيير', danger: true, onConfirm: () => this.savePassword() });
-    },
-    async savePassword() {
-      const password = this.forms.password; this.loading.wifiSave = true;
-      try {
-        await this.api('/api/wifi/password', { method: 'PUT', body: JSON.stringify({ password }) });
-        this.forms.password = ''; this.toast('تم تغيير كلمة المرور', 'success'); this.log('تغيير كلمة المرور', 'warn');
       } catch (e) { this.toast(e.message, 'error'); } finally { this.loading.wifiSave = false; }
     },
     async runSpeedTest() {
