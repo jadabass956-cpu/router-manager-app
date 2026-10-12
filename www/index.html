@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta name="theme-color" content="#2563eb">
-<title>مدير الراوتر</title>
+<title>TND Manager</title>
 <script src="/lib/tailwind.cdn.js"></script>
 <script>
 tailwind.config = {
@@ -50,7 +50,7 @@ tailwind.config = {
       <div class="w-8 h-8 rounded-lg bg-primary flex items-center justify-center text-white shrink-0">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4"><path d="M5 12.55a11 11 0 0114.08 0"/><path d="M1.42 9a16 16 0 0121.16 0"/><path d="M8.53 16.11a6 6 0 016.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></svg>
       </div>
-      <h1 class="font-bold text-base truncate">مدير الراوتر</h1>
+      <h1 class="font-bold text-base truncate">TND Manager</h1>
     </div>
     <button @click="checkHealth()" class="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-full border transition" :class="online ? 'border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-950/40 text-green-700 dark:text-green-400' : 'border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950/40 text-red-700 dark:text-red-400'">
       <span class="w-1.5 h-1.5 rounded-full" :class="online ? 'bg-green-500 animate-pulse-slow' : 'bg-red-500'"></span>

@@ -58,7 +58,7 @@
   <g transform="translate(1366, 1050)" filter="url(#shieldShadowSplash)">
 
     <!-- Shield -->
-    <path d="M 0 -280
+    <g data-scale="1.2" transform="translate(-273.20 -273.20) scale(1.2)"><path d="M 0 -280
              C 0 -280, 220 -220, 280 -180
              L 280 -180
              C 280 100, 260 280, 0 480
@@ -110,7 +110,7 @@
         font-size="150" font-weight="700"
         fill="#FFFFFF" text-anchor="middle"
         letter-spacing="2">
-    مدير الراوتر
+    TND Manager
   </text>
 
   <!-- Subtitle -->
@@ -133,5 +133,6 @@
 
   <!-- Bottom accent line -->
   <rect x="1166" y="2075" width="400" height="8" rx="4" fill="#3B82F6"/>
+</g>
 </svg>
 

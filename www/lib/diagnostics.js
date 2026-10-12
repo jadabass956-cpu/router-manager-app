@@ -46,7 +46,7 @@
 
     const btn = document.createElement('div');
     btn.id = 'diag-btn';
-    btn.style.cssText = 'position:fixed;bottom:80px;left:12px;width:44px;height:44px;border-radius:50%;background:#1e293b;border:1px solid #334155;color:#e2e8f0;z-index:99998;display:flex;align-items:center;justify-content:center;font-size:18px;cursor:pointer;box-shadow:0 4px 12px rgba(0,0,0,0.5);';
+    btn.style.cssText = 'position:fixed;top:80px;left:12px;width:44px;height:44px;border-radius:50%;background:#1e293b;border:1px solid #334155;color:#e2e8f0;z-index:99998;display:flex;align-items:center;justify-content:center;font-size:18px;cursor:pointer;box-shadow:0 4px 12px rgba(0,0,0,0.5);';
     btn.innerHTML = '🔍';
     btn.onclick = togglePanel;
     document.body.appendChild(btn);
