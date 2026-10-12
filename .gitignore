@@ -10,3 +10,6 @@ build/
 *.bak
 capacitor.config.json.bak*
 *.bak2
+*.bak.*
+*.broken.*
+*.bak2.*

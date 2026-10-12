@@ -54,7 +54,7 @@
   </g>
 
   <!-- ===== MAIN SHIELD ===== -->
-  <g data-scale="1.18" transform="translate(-92.16 -92.16) scale(1.18)"><g filter="url(#shieldShadow)">
+  <g data-scale="1.28" transform="translate(-143.36 -140.00) scale(1.28)"><g filter="url(#shieldShadow)">
     <!-- Shield outer shape -->
     <path d="M 512 120
              C 512 120, 720 180, 780 220

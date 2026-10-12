@@ -42,7 +42,7 @@ tailwind.config = {
   @keyframes skel { 0% { background-position: 200% 0 } 100% { background-position: -200% 0 } }
 </style>
 </head>
-<body class="bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-gray-100 font-sans min-h-screen" x-data="app()" x-init="init()" x-cloak>
+<body data-safe="v1" class="bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-gray-100 font-sans min-h-screen" x-data="app()" x-init="init()" x-cloak>
 
 <header class="sticky top-0 z-30 bg-white/80 dark:bg-gray-900/80 backdrop-blur border-b border-gray-200 dark:border-gray-800">
   <div class="max-w-5xl mx-auto px-4 h-14 flex items-center gap-3">
@@ -50,7 +50,12 @@ tailwind.config = {
       <div class="w-8 h-8 rounded-lg bg-primary flex items-center justify-center text-white shrink-0">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4"><path d="M5 12.55a11 11 0 0114.08 0"/><path d="M1.42 9a16 16 0 0121.16 0"/><path d="M8.53 16.11a6 6 0 016.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></svg>
       </div>
-      <h1 class="font-bold text-base truncate">TND Manager</h1>
+      <h1 class="font-bold text-sm truncate">TND Manager</h1>
+      <button id="headerDiagBtn" @click="window.diag && window.diag.open()"
+              class="w-7 h-7 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 flex items-center justify-center shrink-0 text-gray-600 dark:text-gray-400"
+              title="التشخيص">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-3.5 h-3.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      </button>
     </div>
     <button @click="checkHealth()" class="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-full border transition" :class="online ? 'border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-950/40 text-green-700 dark:text-green-400' : 'border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950/40 text-red-700 dark:text-red-400'">
       <span class="w-1.5 h-1.5 rounded-full" :class="online ? 'bg-green-500 animate-pulse-slow' : 'bg-red-500'"></span>
@@ -752,13 +757,13 @@ tailwind.config = {
 
     <!-- ═══ Connection Identity Card ═══ -->
     <div class="rounded-xl p-4 border-2 space-y-3 transition"
-         :class="identity.data && identity.data.evaluation ? identitySeverityClass(identity.data.evaluation.severity) : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700'">
+         :class="identity.data && identity.data?.evaluation ? identitySeverityClass(identity.data?.evaluation?.severity) : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700'">
 
       <div class="flex items-center justify-between">
         <h3 class="font-bold text-sm flex items-center gap-2">
           <span>🌐 هوية اتصالك</span>
-          <span x-show="identity.data && identity.data.evaluation"
-                x-text="identityIcon(identity.data.evaluation.severity)"
+          <span x-show="identity.data && identity.data?.evaluation"
+                x-text="identityIcon(identity.data?.evaluation?.severity)"
                 class="text-lg"></span>
         </h3>
         <button @click="loadIdentity()" :disabled="identity.loading"
@@ -781,52 +786,52 @@ tailwind.config = {
       </div>
 
       <!-- Data -->
-      <div x-show="!identity.loading && identity.data && identity.data.ok" class="space-y-2.5">
+      <div x-show="!identity.loading && identity.data && identity.data?.ok" class="space-y-2.5">
 
         <!-- Status label -->
-        <div x-show="identity.data && identity.data.evaluation"
+        <div x-show="identity.data && identity.data?.evaluation"
              class="text-sm font-bold"
              :class="{
-               'text-green-700 dark:text-green-400': identity.data.evaluation && identity.data.evaluation.severity === 'ok',
-               'text-blue-700 dark:text-blue-400': identity.data.evaluation && identity.data.evaluation.severity === 'low',
-               'text-amber-700 dark:text-amber-400': identity.data.evaluation && identity.data.evaluation.severity === 'medium',
-               'text-red-700 dark:text-red-400': identity.data.evaluation && identity.data.evaluation.severity === 'high'
+               'text-green-700 dark:text-green-400': identity.data?.evaluation && identity.data?.evaluation?.severity === 'ok',
+               'text-blue-700 dark:text-blue-400': identity.data?.evaluation && identity.data?.evaluation?.severity === 'low',
+               'text-amber-700 dark:text-amber-400': identity.data?.evaluation && identity.data?.evaluation?.severity === 'medium',
+               'text-red-700 dark:text-red-400': identity.data?.evaluation && identity.data?.evaluation?.severity === 'high'
              }"
-             x-text="identity.data.evaluation ? identity.data.evaluation.label : ''"></div>
+             x-text="identity.data?.evaluation ? identity.data?.evaluation?.label : ''"></div>
 
         <!-- Details table -->
         <div class="bg-white/60 dark:bg-gray-900/50 rounded-lg p-3 space-y-2 text-xs">
           <div class="flex items-center justify-between gap-2">
             <span class="text-gray-500 shrink-0">IP العام</span>
-            <span class="font-mono truncate text-left" dir="ltr" x-text="identity.data.ip || '—'"></span>
+            <span class="font-mono truncate text-left" dir="ltr" x-text="identity.data?.ip || '—'"></span>
           </div>
-          <div class="flex items-center justify-between gap-2" x-show="identity.data.isp">
+          <div class="flex items-center justify-between gap-2" x-show="identity.data?.isp">
             <span class="text-gray-500 shrink-0">المزود</span>
-            <span class="font-medium truncate text-left" x-text="identity.data.isp"></span>
+            <span class="font-medium truncate text-left" x-text="identity.data?.isp"></span>
           </div>
-          <div class="flex items-center justify-between gap-2" x-show="identity.data.countryName">
+          <div class="flex items-center justify-between gap-2" x-show="identity.data?.countryName">
             <span class="text-gray-500 shrink-0">الدولة</span>
-            <span class="font-medium" x-text="identity.data.countryName + (identity.data.city ? ' — ' + identity.data.city : '')"></span>
+            <span class="font-medium" x-text="identity.data?.countryName + (identity.data?.city ? ' — ' + identity.data?.city : '')"></span>
           </div>
-          <div class="flex items-center justify-between gap-2" x-show="identity.data.asn">
+          <div class="flex items-center justify-between gap-2" x-show="identity.data?.asn">
             <span class="text-gray-500 shrink-0">ASN</span>
-            <span class="font-mono" dir="ltr" x-text="identity.data.asn"></span>
+            <span class="font-mono" dir="ltr" x-text="identity.data?.asn"></span>
           </div>
-          <div class="flex items-center justify-between gap-2" x-show="identity.data.colo">
+          <div class="flex items-center justify-between gap-2" x-show="identity.data?.colo">
             <span class="text-gray-500 shrink-0">Cloudflare</span>
-            <span class="font-mono" dir="ltr" x-text="identity.data.colo"></span>
+            <span class="font-mono" dir="ltr" x-text="identity.data?.colo"></span>
           </div>
-          <div class="flex items-center justify-between gap-2" x-show="identity.data.warp">
+          <div class="flex items-center justify-between gap-2" x-show="identity.data?.warp">
             <span class="text-gray-500 shrink-0">WARP</span>
-            <span class="font-medium" :class="identity.data.warp === 'on' ? 'text-amber-600 dark:text-amber-400' : 'text-gray-400'"
-                  x-text="identity.data.warp === 'on' ? 'مفعّل' : 'معطّل'"></span>
+            <span class="font-medium" :class="identity.data?.warp === 'on' ? 'text-amber-600 dark:text-amber-400' : 'text-gray-400'"
+                  x-text="identity.data?.warp === 'on' ? 'مفعّل' : 'معطّل'"></span>
           </div>
         </div>
 
         <!-- Warnings -->
-        <div x-show="identity.data.evaluation && identity.data.evaluation.warnings && identity.data.evaluation.warnings.length > 0"
+        <div x-show="identity.data?.evaluation && identity.data?.evaluation?.warnings && identity.data?.evaluation?.warnings.length > 0"
              class="space-y-1.5">
-          <template x-for="(w, i) in (identity.data.evaluation ? identity.data.evaluation.warnings : [])" :key="i">
+          <template x-for="(w, i) in (identity.data?.evaluation ? identity.data?.evaluation?.warnings : [])" :key="i">
             <div class="flex items-start gap-2 text-[11px] leading-relaxed text-gray-700 dark:text-gray-300">
               <span x-text="w.severity === 'high' ? '🚨' : (w.severity === 'medium' ? '⚠️' : 'ℹ️')"></span>
               <span x-text="w.text"></span>
@@ -1536,6 +1541,9 @@ function app() {
     blockModal: { open: false, mac: '', name: '', mode: 'temp', minutes: 30, limitMb: 500, blocked: false, unblockAt: null, dailyLimitBytes: 0 },
     emergencyResetting: false,
     backendMac: null,
+    backendMacInput: '',
+    autoDetectedMac: null,
+    savingBackendMac: false,
     wan: null,
     filter: { mode: 'disabled', macs: [] },
     wifi: { ssid: '', encryption: '', supported: [] },
